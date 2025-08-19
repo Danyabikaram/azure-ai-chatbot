@@ -2,11 +2,10 @@
 
 
 ## Design Decisions
--Use CLI for user interaction 
--Reuse the Azure Resource Group from Lab 1 to avoid duplicating resources.
--Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
--Keep architecture modular so that additional services can be added in future labs.
-
+1.	Use CLI for user interaction 
+2.	Reuse the Azure Resource Group from Lab 1 to avoid duplicating resources.
+3.	Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
+4.	 Keep architecture modular so that additional services can be added in future labs.
 
 ## Data Flow
 1.	User Input:
@@ -19,7 +18,7 @@
    Within the Azure OpenAI Service (inside the Resource Group), the deployed GPT-4o model processes the query and generates a text response.
 5.	Response Returned:
    The AI response is sent back from Azure OpenAI to the Python CLI Chatbot.
-6.	User Output
+6.	User Output:
    The chatbot displays the reply in the CLI, completing the interaction loop.
 
 
