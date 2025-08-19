@@ -2,10 +2,10 @@
 
 
 ## Design Decisions
-•	Use CLI for user interaction 
-•	Reuse the Azure Resource Group from Lab 1 to avoid duplicating resources.
-•	Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
-•	Keep architecture modular so that additional services can be added in future labs.
+-Use CLI for user interaction 
+-Reuse the Azure Resource Group from Lab 1 to avoid duplicating resources.
+-Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
+-Keep architecture modular so that additional services can be added in future labs.
 
 
 ## Data Flow
