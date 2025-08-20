@@ -1,6 +1,6 @@
 # Azure AI Chatbot
 
-A simple chatbot using **Azure OpenAI GPT-4**.
+The Azure AI Chatbot provides an interactive console-based conversation using the GPT-4 model on Azure OpenAI. It greets the user, processes input, generates responses, and asks if further assistance is needed. The chat continues until the user types exit, demonstrating real-time AI interaction and error-handling capabilities.
 
 ## Setup
 
@@ -46,4 +46,5 @@ enter a prompt: when was google invented?
 AI: Google was invented in 1998 by Larry Page and Sergey Brin while they were Ph.D. students at Stanford University in California. Would you like to know more about Google's history or anything else?
 
 enter a prompt: exit
+
 AI: Goodbye!If you have any more questions or need further assistance, feel free to ask. 
