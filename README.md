@@ -44,6 +44,7 @@ Configuration is handled in chatbot.py using environment variables.
 AI: Hello! How can I assist you today? 👋
 
 enter a prompt: when was google invented?
+
 AI: Google was invented in 1998 by Larry Page and Sergey Brin while they were Ph.D. students at Stanford University in California. Would you like to know more about Google's history or anything else?
 
 enter a prompt: exit
