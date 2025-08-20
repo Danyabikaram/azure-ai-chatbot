@@ -15,9 +15,10 @@ The Azure AI Chatbot provides an interactive console-based conversation using th
 3. Set environment variables:
 Create a .env file:
 AZURE_OPENAI_API_KEY=your_api_key_here
+
 AZURE_OPENAI_ENDPOINT=https://your-endpoint-here.openai.azure.com/
 
-4. Run the chatbot:
+5. Run the chatbot:
 python chatbot.py
 
 Type exit to quit.
