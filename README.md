@@ -73,4 +73,4 @@ AI: Goodbye!If you have any more questions or need further assistance, feel free
 
 
 ## Deploying Python Azure Function App for Chatbot
-To deploy the code into a function app in azure, first update your code to the code mentioned in the"Deploying Python Azure Function App for Chatbot" file then follow the steps.
+To deploy the code into a function app in azure, first update your code to the code mentioned in the"Code to deploy Python Azure Function App for Chatbot " file then follow the steps mentioned in the file "Steps to deploy python azure function app for chatbot"
