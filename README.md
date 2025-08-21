@@ -17,6 +17,7 @@ Subscription: your Azure subscription
 Resource group: new or existing
 
 Region: must be one of the supported ones for GPT-4 (East US, France Central, Korea Central, West Europe, West US).
+
 Wait for the project to be created.
 In the left menu, go to Playgrounds → Chat playground.
 In the Setup pane, click + Create a deployment.
