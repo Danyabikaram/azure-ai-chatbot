@@ -4,7 +4,9 @@ and "azure function app" from  https://learn.microsoft.com/en-us/azure/azure-fun
 
 In command propmt:
 1. Log in to Azure :
-az login
+az login   #This opens a browser for authentication.
+
+note that You need a Resource Group and a Storage Account before creating the Function App.
 
 2. Create the Function App :
 az functionapp create \
