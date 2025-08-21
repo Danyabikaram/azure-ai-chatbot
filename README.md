@@ -2,9 +2,9 @@
 
 The Azure AI Chatbot provides an interactive console-based conversation using the GPT-4 model on Azure OpenAI. It greets the user, processes input, generates responses, and asks if further assistance is needed. The chat continues until the user types exit, demonstrating real-time AI interaction and error-handling capabilities.
 
-## Setup
+# Setup
 
-# Prerequisites: Set up Azure OpenAI Connection
+## Prerequisites: Set up Azure OpenAI Connection
 
 Go to Azure AI Studio
 Click Create new → choose Azure AI Foundry project.
