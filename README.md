@@ -50,3 +50,7 @@ AI: Google was invented in 1998 by Larry Page and Sergey Brin while they were Ph
 enter a prompt: exit
 
 AI: Goodbye!If you have any more questions or need further assistance, feel free to ask. 
+
+
+##Deploying Python Azure Function App for Chatbot
+To deploy the code into a function app in azure, follow the steps in the "Deploying Python Azure Function App for Chatbot" file
