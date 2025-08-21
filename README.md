@@ -4,6 +4,28 @@ The Azure AI Chatbot provides an interactive console-based conversation using th
 
 ## Setup
 
+Prerequisites: Set up Azure OpenAI Connection
+
+Go to Azure AI Studio
+Click Create new → choose Azure AI Foundry project.
+Fill in:
+
+Name: a unique project name
+
+Subscription: your Azure subscription
+
+Resource group: new or existing
+
+Region: must be one of the supported ones for GPT-4 (East US, France Central, Korea Central, West Europe, West US).
+Wait for the project to be created.
+In the left menu, go to Playgrounds → Chat playground.
+In the Setup pane, click + Create a deployment.
+Pick From base models → gpt-4.
+Confirm and wait for the deployment.
+After deployment:
+You can test it in the Chat playground.
+You can get your endpoint + API key from Management Center → All Resources → your AI Foundry project.
+
 1. Clone this repo:
    ```bash
    git clone https://github.com/Danyabikaram/azure-ai-chatbot.git
