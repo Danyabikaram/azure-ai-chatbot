@@ -1,1 +1,5 @@
-
+azure-functions
+openai
+python-dotenv
+httpx
+python_dotenv
