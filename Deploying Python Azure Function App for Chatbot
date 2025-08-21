@@ -1,5 +1,6 @@
 ##To deploy your code into a function app in azure:
-first download: "azure cli" and "azure function app"
+first download: "azure cli"  from https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-windows?view=azure-cli-latest&pivots=msi
+and "azure function app" from  https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=windows%2Cisolated-process%2Cnode-v4%2Cpython-v2%2Chttp-trigger%2Ccontainer-apps&pivots=programming-language-python#install-the-azure-functions-core-tools
 
 In command propmt:
 1. Log in to Azure :
