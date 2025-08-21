@@ -1,0 +1,35 @@
+##To deploy your code into a function app in azure:
+first download: "azure cli" and "azure function app"
+
+In command propmt:
+1. Log in to Azure :
+az login
+
+2. Create the Function App :
+az functionapp create \
+  --resource-group <RESOURCEGROUP> \
+  --consumption-plan-location eastus2 \
+  --runtime python \
+  --runtime-version 3.10 \
+  --functions-version 4 \
+  --name my-chatbot-func \
+  --storage-account <STORAGEACCOUNT> \
+  --os-type Linux
+ 
+3.Publish Function Code to Azure:    
+func azure functionapp publish my-chatbot-func --python      #This command uploads your local code to the Function App
+
+4.List Deployed Functions and Endpoints:
+az functionapp function list \
+  --name my-chatbot-func \
+  --resource-group <RESOURCEGROUP>\
+  --query "[].invokeUrlTemplate" -o tsv       #This shows the full HTTP trigger URLs for your deployed functions.
+
+5.Example Endpoint Test:
+https://<FUNCTION_APP_NAME>.azurewebsites.net/api/<FUNCTION_NAME>?message=Hello
+
+
+
+
+
+
