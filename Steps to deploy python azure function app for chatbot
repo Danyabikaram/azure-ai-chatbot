@@ -5,6 +5,8 @@ In command propmt:
 1. Log in to Azure :
 az login   #This opens a browser for authentication.
 
+If you encounter a problem "No subscriptions found" try : az login --use-device-code
+
 note that You need a Resource Group and a Storage Account before creating the Function App.
 
 2. Create the Function App :
