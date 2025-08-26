@@ -1,8 +1,12 @@
 ## Design Decisions
 1.Use HTTP requests from the user (via browser or CLI tools or Postman) to interact with the chatbot.
+
 2.Deploy chatbot code in an Azure Function App, ensuring it runs in the cloud instead of locally.
+
 3.Reuse the Azure Resource Group and Azure OpenAI resource from Lab 1 to avoid duplicating resources.
+
 4.Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
+
 5.Keep the architecture modular and extensible so additional Azure services can be added in future labs.
 
 ## Data Flow
