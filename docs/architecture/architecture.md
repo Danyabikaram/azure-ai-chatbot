@@ -1,4 +1,4 @@
-# Architecture – Lab 2 without function app
+# Architecture – V1.0 without function app
 
 
 ## Design Decisions
@@ -23,7 +23,7 @@
 
 
 
-# Architecture – Lab 2 with function app
+# Architecture – V1.0 with function app
 
 ## Design Decisions
 
@@ -57,6 +57,43 @@ Data Flow
 
 6. User Output:
    The Function App returns the AI response to the user via the HTTP response, completing the interaction loop.
+
+# Architecture-V1.1
+
+## Design Decisions
+
+1. Use CLI for user interaction.
+
+2. Reuse the Azure Resource Group from Lab 1 to avoid duplicating resources.
+
+3. Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
+
+4. Add Session Management (Azure Table Storage) to maintain context across multiple user interactions.
+
+5. Include Azure Storage (Cosmos DB) for storing logs, conversation history, or analytical data.
+
+6.Keep the architecture modular so that additional services can be integrated in future labs.
+
+## Data Flow
+
+1. User Input: The user types a question or prompt into the Command Line Interface (CLI).
+
+2. Application Processing: The Python CLI Chatbot receives the input and formats it as an API request.
+
+3. API Request to Azure Function App: The CLI sends the request to the Azure Function App, which acts as the middleware.
+
+4. Session Management: The Function App checks Azure Table Storage to fetch or update the user session state.
+
+5. AI Request to Azure OpenAI: The Function App sends the processed request to the Azure OpenAI Service (GPT-4o deployment).
+
+6. AI Response Generation: The GPT-4o model processes the query inside Azure OpenAI and generates a response.
+
+7. Response Handling: The Function App stores logs or conversation history in Azure Storage (Cosmos DB).
+
+8. Response Returned: The Function App sends the AI-generated response back to the CLI chatbot.
+
+9. User Output: The chatbot displays the reply in the CLI, completing the interaction loop.
+
 
 ## Note
 This diagram and doc will be updated in later labs .
