@@ -82,7 +82,7 @@ Data Flow
 
 3. API Request to Azure Function App: The CLI sends the request to the Azure Function App, which acts as the middleware.
 
-4. Session Management: The Function App checks Azure Table Storage to fetch or update the user session state.
+4. Session Management: The Function App checks Azure Cosmos DB to fetch or update the user session state.
 
 5. AI Request to Azure OpenAI: The Function App sends the processed request to the Azure OpenAI Service (GPT-4o deployment).
 
