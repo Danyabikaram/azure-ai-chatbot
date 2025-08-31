@@ -55,7 +55,7 @@ def restart_session():
     """Restart the chat session with a new session ID"""
     global session_id
     session_id = str(uuid.uuid4())   # new session ID
-    print(f"\n🔄 New Session started. Your SessionID: {session_id}\n")
+    print(f"\n New Session started. Your SessionID: {session_id}\n")
     return session_id
 
 # Implement conversation persistence functions
@@ -181,7 +181,7 @@ while __name__ == "__main__":
         {
             "type": "azure_search",
             "parameters": {
-                "endpoint": azure_search_endpoint,     # e.g. https://<search>.search.windows.net
+                "endpoint": azure_search_endpoint,     
                 "index_name": azure_search_index,      # your index name
                 "authentication": {
                     "type": "api_key",
