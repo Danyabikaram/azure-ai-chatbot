@@ -68,11 +68,15 @@ Data Flow
 
 3. Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
 
-4. Add Session Management (Azure Table Storage) to maintain context across multiple user interactions.
+4. Add Session Management (Azure Cosmos DB) to maintain context across multiple user interactions.
 
-5. Include Azure Storage (Cosmos DB) for storing logs, conversation history, or analytical data.
+5.Use Azure Blob Storage for storing uploaded documents that will be indexed for RAG.
 
-6.Keep the architecture modular so that additional services can be integrated in future labs.
+6.Use Azure Cognitive Search to index documents stored in Blob Storage and provide retrieval for grounding GPT-4o responses.
+
+7. Include Azure Storage (Cosmos DB) for storing logs, conversation history, or analytical data.
+
+8.Keep the architecture modular so that additional services can be integrated in future labs.
 
 ## Data Flow
 
@@ -80,19 +84,22 @@ Data Flow
 
 2. Application Processing: The Python CLI Chatbot receives the input and formats it as an API request.
 
-3. API Request to Azure Function App: The CLI sends the request to the Azure Function App, which acts as the middleware.
+3.  Function App Request: The CLI sends the request to the Azure Function App, which acts as the middleware.
 
 4. Session Management: The Function App checks Azure Cosmos DB to fetch or update the user session state.
+   
+5. Document Retrieval (RAG) : The Function App queries Azure Cognitive Search, which retrieves relevant document chunks from Blob Storage.
+The retrieved context is passed along with the user’s message.
 
-5. AI Request to Azure OpenAI: The Function App sends the processed request to the Azure OpenAI Service (GPT-4o deployment).
+6. AI Request : The Function App sends the processed request to the Azure OpenAI Service (GPT-4o deployment).
 
-6. AI Response Generation: The GPT-4o model processes the query inside Azure OpenAI and generates a response.
+7. Response Generation : GPT-4o generates a context-aware response using conversation history and retrieved documents.
+   
+8. Response Handling: The Function App stores logs or conversation history in Azure Storage (Cosmos DB).
 
-7. Response Handling: The Function App stores logs or conversation history in Azure Storage (Cosmos DB).
+10. Response Returned: The Function App sends the AI-generated response back to the CLI chatbot.
 
-8. Response Returned: The Function App sends the AI-generated response back to the CLI chatbot.
-
-9. User Output: The chatbot displays the reply in the CLI, completing the interaction loop.
+11. User Output: The chatbot displays the reply in the CLI, completing the interaction loop.
 
 
 ## Note
