@@ -127,7 +127,7 @@ def clear_conversation(session_id):
 
 # CHAT LOOP 
 print("Chatbot: Hello! How can I assist you today? Type 'exit' to end the conversation "
-"or 'clear' to clear the conversation but stay in the same session "
+"or 'clear' to clear the conversation chat "
 "or 'restart' to open a new session " 
 "or 'show history' to see your chat history of this session.\n")
 
@@ -146,6 +146,7 @@ while True:
     # Clear in-memory conversation
     if user_input.lower() == "clear":
         temp_history = []  # reset only the in-memory history
+        clear_conversation(session_id)  # delete messages from Cosmos DB
         os.system("cls" if os.name == "nt" else "clear")
         print("Chatbot: Conversation cleared! Let's start fresh.")
         continue
@@ -199,9 +200,6 @@ while True:
     # Token-based trimming
     history = trim_history(history)
 
-     # Configure your data source
-   
-
     try:
         # Generate response with context
  
@@ -217,7 +215,7 @@ while True:
                     "End each response by asking if you can help with anything else."
                 )
             }
-        ] + history,   # 👈 history includes both user + assistant messages
+        ] + history,   #  history includes both user + assistant messages
         max_tokens=500,
         temperature=0.2,
         top_p=0.9,
