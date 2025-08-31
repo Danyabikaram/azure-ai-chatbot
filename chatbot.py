@@ -94,7 +94,7 @@ def num_tokens_from_messages(messages):
 def trim_history(history):
     """Ensure history fits within token limit."""
     while num_tokens_from_messages(history) > (MAX_TOKENS - RESERVED_TOKENS):
-        if len(history) > 2:
+        if len(history) > 5:
             history.pop(1)  # remove earliest non-system message
         else:
             break
