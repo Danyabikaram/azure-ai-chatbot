@@ -13,6 +13,7 @@ load_dotenv()
 # Azure OpenAI and Azure Cognitive Search configuration
 azure_oai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 azure_oai_key = os.getenv("AZURE_OPENAI_API_KEY")
+api_version="2024-12-01-preview",
 azure_oai_deployment = "gpt-4o"
 azure_search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
 azure_search_key = os.getenv("AZURE_SEARCH_KEY")
@@ -73,20 +74,6 @@ def load_messages(session_id):
     return [{"role": i["role"], "content": i["content"]} for i in items]
 
 
-#  Add summarization for long chats
-def summarize_conversation(history):
-    """Summarize long conversation history into less than 100 words"""
-    summary_prompt = [
-        {"role": "system", "content": "Summarize the following conversation in less than 100 words."},
-        {"role": "user", "content": str(history)}
-    ]
-    summary = client.chat.completions.create(
-        model="gpt-4o",
-        messages=summary_prompt,
-        max_completion_tokens=150
-    )
-    return summary.choices[0].message.content
-
 
 # TOKEN MANAGEMENT 
 # Initialize tokenizer (Implement context window management (token limits))
@@ -112,6 +99,21 @@ def trim_history(history):
         else:
             break
     return history
+
+#  Add summarization for long chats
+def summarize_conversation(history):
+    """Summarize long conversation history into less than 100 words"""
+    summary_prompt = [
+        {"role": "system", "content": "Summarize the following conversation in less than 100 words."},
+        {"role": "user", "content": str(history)}
+    ]
+    summary = client.chat.completions.create(
+        model="gpt-4o",
+        messages=summary_prompt,
+        max_completion_tokens=150
+    )
+    return summary.choices[0].message.content
+
 
 #delete function
 def clear_conversation(session_id):
