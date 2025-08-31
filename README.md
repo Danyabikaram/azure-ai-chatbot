@@ -76,21 +76,13 @@ To deploy the code into a function app in azure, first update your code to the c
 
 ## Prerequisites for RAG deployment
 
-1.Create Azure Resources: -Azure Cognitive Search Service – to index and search documents.
-
-                         -Azure Storage Account – to store your documents.
+1.Create Azure Resources: Azure Cognitive Search Service – to index and search documents.And an Azure Storage Account – to store your documents.
                          
-2.Upload Documents:In your Storage Account, create a Blob Container.
-
-                   Upload all the documents you want the chatbot to use for retrieval.
+2.Upload Documents:In your Storage Account, create a Blob Container. Upload all the documents you want the chatbot to use for retrieval.
                    
-3.Configure AI Models:In your Azure AI Foundry (previously created), add a Text Embedding Model to GPT-4o.
-
-                      This embedding model will be used for semantic search in your RAG pipeline.
+3.Configure AI Models:In your Azure AI Foundry (previously created), add a Text Embedding Model to GPT-4o.This embedding model will be used for semantic search in your RAG pipeline.
                       
-4.Create an Index in Azure Search:Use the embedding model to create a search index.
-
-                                  this index will enable the chatbot to retrieve relevant document chunks.
+4.Create an Index in Azure Search:Use the embedding model to create a search index. this index will enable the chatbot to retrieve relevant document chunks.
 
 
 ## API configuration
