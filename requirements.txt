@@ -3,3 +3,6 @@ openai
 python-dotenv
 httpx
 python_dotenv
+azure-cosmos
+openai
+tiktoken
