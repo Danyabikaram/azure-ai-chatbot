@@ -1,4 +1,5 @@
 ##To deploy your code into a function app in azure first update your chatbot code to :
+
 import os
 import uuid
 import tiktoken
@@ -31,6 +32,7 @@ except Exception as e:
     print("Your code ran into an error")
     print(f"{e}")
     exit(1)
+
 # Cosmos DB client (Choose storage method: Cosmos DB)
 COSMOS_URI = os.getenv("COSMOS_URI")
 COSMOS_KEY = os.getenv("COSMOS_KEY")
@@ -47,13 +49,13 @@ container = database.create_container_if_not_exists(
 
 #  Session Management
 # Create session identifier
-session_id = str(uuid.uuid4())
+session_id = str(uuid.uuid4())   #generate sessionId
 print(f"Your SessionID: {session_id}")  # Can be reused for the same user
 
 #Session restart functionality
 def restart_session():
     """Restart the chat session with a new session ID"""
-    global session_id
+    global session_id    #global var so that i can use it wherever i want
     session_id = str(uuid.uuid4())   # new session ID
     print(f"\n New Session started. Your SessionID: {session_id}\n")
     return session_id
@@ -76,21 +78,6 @@ def load_messages(session_id):
     return [{"role": i["role"], "content": i["content"]} for i in items]
 
 
-#  Add summarization for long chats
-def summarize_conversation(history):
-    """Summarize long conversation history into less than 100 words"""
-    summary_prompt = [
-        {"role": "system", "content": "Summarize the following conversation in less than 100 words."},
-        {"role": "user", "content": str(history)}
-    ]
-    summary = client.chat.completions.create(
-        model="gpt-4o",
-        messages=summary_prompt,
-        max_completion_tokens=150
-    )
-    return summary.choices[0].message.content
-
-
 # TOKEN MANAGEMENT 
 # Initialize tokenizer (Implement context window management (token limits))
 encoding = tiktoken.encoding_for_model("gpt-4o")
@@ -110,11 +97,26 @@ def num_tokens_from_messages(messages):
 def trim_history(history):
     """Ensure history fits within token limit."""
     while num_tokens_from_messages(history) > (MAX_TOKENS - RESERVED_TOKENS):
-        if len(history) > 2:
+        if len(history) > 5:
             history.pop(1)  # remove earliest non-system message
         else:
             break
     return history
+
+#  Add summarization for long chats
+def summarize_conversation(history):
+    """Summarize long conversation history into less than 100 words"""
+    summary_prompt = [
+        {"role": "system", "content": "Summarize the following conversation in less than 100 words."},
+        {"role": "user", "content": str(history)}
+    ]
+    summary = client.chat.completions.create(
+        model="gpt-4o",
+        messages=summary_prompt,
+        max_completion_tokens=150
+    )
+    return summary.choices[0].message.content
+temp_history = []
 
 #delete function
 def clear_conversation(session_id):
@@ -123,17 +125,18 @@ def clear_conversation(session_id):
     items = list(container.query_items(query, enable_cross_partition_query=True))
     for item in items:
         container.delete_item(item["id"], partition_key=item["sessionId"])
+    print("Chatbot: Conversation cleared! Let's start fresh.")
 
 
 
 # CHAT LOOP (local testing only)
 print("Chatbot: Hello! How can I assist you today? Type 'exit' to end the conversation "
-"or 'clear' to clear the conversation but stay in the same session "
+"or 'clear' to clear the conversation chat "
 "or 'restart' to open a new session " 
 "or 'show history' to see your chat history of this session.\n")
 
 # Keep a temporary in-memory history
-temp_history = []
+
 
 while __name__ == "__main__":
     user_input = input("You: ")
@@ -146,9 +149,7 @@ while __name__ == "__main__":
 
     # Clear in-memory conversation
     if user_input.lower() == "clear":
-        temp_history = []  # reset only the in-memory history
-        os.system("cls" if os.name == "nt" else "clear")
-        print("Chatbot: Conversation cleared! Let's start fresh.")
+        clear_conversation(session_id)
         continue
 
      # Restart session
@@ -200,9 +201,6 @@ while __name__ == "__main__":
     # Token-based trimming
     history = trim_history(history)
 
-     # Configure your data source
-   
-
     try:
         # Generate response with context
  
@@ -218,7 +216,7 @@ while __name__ == "__main__":
                     "End each response by asking if you can help with anything else."
                 )
             }
-        ] + history,   # 👈 history includes both user + assistant messages
+        ] + history,   #  history includes both user + assistant messages
         max_tokens=500,
         temperature=0.2,
         top_p=0.9,
@@ -249,9 +247,9 @@ while __name__ == "__main__":
         print(f"{e}")
 
 
-# -------------------------------
+
 # AZURE FUNCTION APP ENTRY POINT
-# -------------------------------
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Processing request for chatbot via Function App")
 
@@ -261,11 +259,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if command == "clear":
             clear_conversation(session_id)
-            return func.HttpResponse("Conversation cleared.", status_code=200)
+            return func.HttpResponse("Conversation cleared! Let's start fresh.", status_code=200)
 
         if command == "restart":
             restart_session()
-            return func.HttpResponse(f"Session restarted. New session ID: {session_id}", status_code=200)
+            return func.HttpResponse(f"Session restarted! Ready for a new conversation. New session ID: {session_id}", status_code=200)
 
         if command == "show history":
             history = load_messages(session_id)
@@ -275,10 +273,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(text, status_code=200)
 
         if not user_message:
-            return func.HttpResponse("Hello! How can I assist you today? Type 'exit' to end the conversation "
-                                    "or 'clear' to clear the conversation but stay in the same session "
-                                    "or 'restart' to open a new session " 
-                                    "or 'show history' to see your chat history of this session.", status_code=400)
+            return func.HttpResponse("Chatbot: Hello! How can I assist you today?" 
+            " Type 'exit' to end the conversation "
+            "or 'clear' to clear the conversation chat "
+            "or 'restart' to open a new session " 
+            "or 'show history' to see your chat history of this session.\n")
 
         # Save user message
         save_message(session_id, "user", user_message)
@@ -293,7 +292,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     "endpoint": azure_search_endpoint,
                     "index_name": azure_search_index,
                     "authentication": {"type": "api_key", "key": azure_search_key},
-                    "in_scope": False,
+                    "in_scope": False,     #not to only look in the RAG doc
                 },
             }
         ]
@@ -327,6 +326,21 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(f"Unexpected error: {e}")
         return func.HttpResponse(f"Error: {e}", status_code=500)
 
+
+
+
+        
+
+    
+    
+                 
+      
+       
+   
+            
+       
+
+          
 
 
 
