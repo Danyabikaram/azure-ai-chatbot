@@ -1,4 +1,5 @@
 ##To deploy your code into a function app in azure first update your chatbot code to :
+
 import os
 import uuid
 import tiktoken
@@ -255,7 +256,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
         user_message = req.params.get("message")
         command = (user_message or "").lower()
-
+        
+        if command == "exit":
+            return func.HttpResponse(
+                "Chatbot: Ending the conversation. Have a great day!",
+                status_code=200
+            )
         if command == "clear":
             clear_conversation(session_id)
             return func.HttpResponse("Conversation cleared! Let's start fresh.", status_code=200)
@@ -335,10 +341,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         return func.HttpResponse(f"Your code ran into an error: {e}", status_code=500)
-        
 
-    
-    
+
+   
+
+  
                  
       
        
