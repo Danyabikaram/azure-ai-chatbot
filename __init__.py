@@ -147,7 +147,7 @@ while __name__ == "__main__":
         break
     
 
-    # Clear in-memory conversation
+    # Clear session conversation from cosmosdb
     if user_input.lower() == "clear":
         clear_conversation(session_id)
         continue
