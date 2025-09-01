@@ -1,5 +1,4 @@
 ##To deploy your code into a function app in azure first update your chatbot code to :
-
 import os
 import uuid
 import tiktoken
@@ -147,7 +146,7 @@ while __name__ == "__main__":
         break
     
 
-    # Clear session conversation from cosmosdb
+    # Clear  session conversation from cosmos db
     if user_input.lower() == "clear":
         clear_conversation(session_id)
         continue
@@ -177,7 +176,7 @@ while __name__ == "__main__":
 
     # Load conversation history
     history = load_messages(session_id)
-    print(type(history))
+   
     extension_config = [
         {
             "type": "azure_search",
@@ -322,13 +321,20 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         return func.HttpResponse(response)
 
+ 
+   
+    except APIConnectionError as e:
+        return func.HttpResponse(f"The server could not be reached: {e._cause_}", status_code=503)
+    except RateLimitError:
+        return func.HttpResponse("A 429 status code was received; please slow down.", status_code=429)
+    except APIStatusError as e:
+        return func.HttpResponse(
+            f"Another non-200-range status code was received: {e.status_code} {e.response}",
+            status_code=e.status_code
+        )
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        return func.HttpResponse(f"Error: {e}", status_code=500)
-
-
-
-
+        return func.HttpResponse(f"Your code ran into an error: {e}", status_code=500)
         
 
     
