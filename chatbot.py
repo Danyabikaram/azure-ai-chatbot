@@ -1,64 +1,66 @@
 import os
 import uuid
-import tiktoken
 from dotenv import load_dotenv
+import tiktoken
 from openai import AzureOpenAI, APIConnectionError, RateLimitError, APIStatusError
 from azure.cosmos import CosmosClient
 from azure.cosmos.partition_key import PartitionKey
 
 
 # Load environment variables
+
 load_dotenv()
 
-# Azure OpenAI and Azure Cognitive Search configuration
-azure_oai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-azure_oai_key = os.getenv("AZURE_OPENAI_API_KEY")
-api_version="2024-12-01-preview",
-azure_oai_deployment = "gpt-4o"
-azure_search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
-azure_search_key = os.getenv("AZURE_SEARCH_KEY")
-azure_search_index = os.getenv("AZURE_SEARCH_INDEX")
+# Azure OpenAI configuration
+AZURE_OAI_ENDPOINT = os.getenv("AZURE_OAI_ENDPOINT")
+AZURE_OAI_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OAI_DEPLOYMENT = os.getenv("AZURE_CHAT_DEPLOYMENT")  
 
-try: 
-        # Initialize the Azure OpenAI client
-    client = AzureOpenAI(
-            base_url=azure_oai_endpoint,
-            api_key=azure_oai_key,
-            api_version="2025-01-01-preview")
-except Exception as e:
-    print("Your code ran into an error")
-    print(f"{e}")
-    exit(1)
-# Cosmos DB client (Choose storage method: Cosmos DB)
+# Azure Search (for RAG extensions)
+AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
+AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
+AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
+
+# Cosmos DB configuration
 COSMOS_URI = os.getenv("COSMOS_URI")
 COSMOS_KEY = os.getenv("COSMOS_KEY")
 DATABASE_NAME = "ChatbotDB"
 CONTAINER_NAME = "Sessions"
 
+
+# Initialize Azure clients
+
+try:
+    chat_client = AzureOpenAI(
+        base_url=AZURE_OAI_ENDPOINT,
+        api_key=AZURE_OAI_KEY,
+        api_version="2024-12-01-preview"
+    )
+except Exception as e:
+    print("Error initializing Azure OpenAI client:", e)
+    exit(1)
+
+# Cosmos DB client
 cosmos_client = CosmosClient(COSMOS_URI, COSMOS_KEY)
 database = cosmos_client.create_database_if_not_exists(DATABASE_NAME)
 container = database.create_container_if_not_exists(
     id=CONTAINER_NAME,
-    partition_key=PartitionKey(path="/sessionId")  # partition by session
+    partition_key=PartitionKey(path="/sessionId")
 )
 
 
-#  Session Management
-# Create session identifier
-session_id = str(uuid.uuid4())
-print(f"Your SessionID: {session_id}")  # Can be reused for the same user
+# Session Management
 
-#Session restart functionality
+session_id = str(uuid.uuid4())
+print(f"Your SessionID: {session_id}")
+
 def restart_session():
-    """Restart the chat session with a new session ID"""
     global session_id
-    session_id = str(uuid.uuid4())   # new session ID
-    print(f"\n New Session started. Your SessionID: {session_id}\n")
+    session_id = str(uuid.uuid4())
+    print(f"\nNew Session started. Your SessionID: {session_id}\n")
     return session_id
 
-# Implement conversation persistence functions
 def save_message(session_id, role, content):
-    """Save a message (user or assistant) in Cosmos DB"""
     container.create_item({
         "id": str(uuid.uuid4()),
         "sessionId": session_id,
@@ -66,107 +68,119 @@ def save_message(session_id, role, content):
         "content": content
     })
 
-
 def load_messages(session_id):
-    """Load all messages for a session from Cosmos DB"""
     query = f"SELECT c.role, c.content FROM c WHERE c.sessionId = '{session_id}' ORDER BY c._ts ASC"
     items = list(container.query_items(query, enable_cross_partition_query=True))
     return [{"role": i["role"], "content": i["content"]} for i in items]
 
-
-
-# TOKEN MANAGEMENT 
-# Initialize tokenizer (Implement context window management (token limits))
-encoding = tiktoken.encoding_for_model("gpt-4o")
-# Configurable parameters
-MAX_TOKENS = 4000        # safe limit below gpt-4o max
-RESERVED_TOKENS = 500    # reserve space for response
-SUMMARIZE_AFTER = 25     # when to summarize long chats
-
-def num_tokens_from_messages(messages):
-    """Count tokens used by a list of messages."""
-    tokens = 0
-    for msg in messages:
-        tokens += len(encoding.encode(msg["content"]))
-    return tokens
-
-
-def trim_history(history):
-    """Ensure history fits within token limit."""
-    while num_tokens_from_messages(history) > (MAX_TOKENS - RESERVED_TOKENS):
-        if len(history) > 5:
-            history.pop(1)  # remove earliest non-system message
-        else:
-            break
-    return history
-
-#  Add summarization for long chats
-def summarize_conversation(history):
-    """Summarize long conversation history into less than 100 words"""
-    summary_prompt = [
-        {"role": "system", "content": "Summarize the following conversation in less than 100 words."},
-        {"role": "user", "content": str(history)}
-    ]
-    summary = client.chat.completions.create(
-        model="gpt-4o",
-        messages=summary_prompt,
-        max_completion_tokens=150
-    )
-    return summary.choices[0].message.content
-
-
-#delete function
 def clear_conversation(session_id):
-    """Delete all messages for a session from Cosmos DB"""
     query = f"SELECT c.id, c.sessionId FROM c WHERE c.sessionId = '{session_id}'"
     items = list(container.query_items(query, enable_cross_partition_query=True))
     for item in items:
         container.delete_item(item["id"], partition_key=item["sessionId"])
 
 
+# Token & Summarization
 
-# CHAT LOOP 
-print("Chatbot: Hello! How can I assist you today? Type 'exit' to end the conversation "
-"or 'clear' to clear the conversation chat "
-"or 'restart' to open a new session " 
-"or 'show history' to see your chat history of this session.\n")
+encoding = tiktoken.encoding_for_model("gpt-4o")
+MAX_TOKENS = 4000
+RESERVED_TOKENS = 500
+SUMMARIZE_AFTER = 25
 
-# Keep a temporary in-memory history
+def num_tokens_from_messages(messages):
+    return sum(len(encoding.encode(m["content"])) for m in messages)
+
+def trim_history(history):
+    while num_tokens_from_messages(history) > (MAX_TOKENS - RESERVED_TOKENS):
+        if len(history) > 2:
+            history.pop(1)  # remove earliest non-system message
+        else:
+            break
+    return history
+
+def summarize_conversation(history):
+    summary_prompt = [
+        {"role": "system", "content": "Summarize the following conversation in less than 100 words."},
+        {"role": "user", "content": str(history)}
+    ]
+    summary = chat_client.chat.completions.create(
+        model=AZURE_OAI_DEPLOYMENT,
+        messages=summary_prompt,
+        max_tokens=150
+    )
+    return summary.choices[0].message.content
+
+
+# RAG using Azure OpenAI extensions
+
+extension_config = [
+    {
+        "type": "azure_search",
+        "parameters": {
+            "endpoint": AZURE_SEARCH_ENDPOINT,
+            "index_name": AZURE_SEARCH_INDEX,
+            "authentication": {"type": "api_key", "key": AZURE_SEARCH_KEY},
+            "in_scope": True,
+        },
+    }
+]
+
+def generate_rag_response(user_query, history):
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an AI assistant. ONLY answer questions using information retrieved from documents via RAG. "
+                "Do NOT use your own knowledge. If the answer is not in the documents, respond with 'I don't know.' "
+                "Include references or links whenever possible. Provide clear step-by-step explanations and examples. "
+                "After the answer, suggest related topics or next steps, and ask if the user wants further help."
+            )
+        },
+        {"role": "user", "content": user_query}
+    ] + history[-10:]
+
+    response = chat_client.chat.completions.create(
+        model=AZURE_OAI_DEPLOYMENT,
+        messages=messages,
+        max_tokens=500,
+        temperature=0.2,
+        top_p=0.9,
+        presence_penalty=0.6,
+        frequency_penalty=0.5,
+        extra_body={"data_sources": extension_config}  #  pass your RAG source here
+    )
+
+    return response.choices[0].message.content
+
+
+# Chat Loop
+
+print("Chatbot: Hello! Type 'exit' to quit, 'clear' to clear conversation(also from cosmosDB), 'restart' for a new session, 'show history' to view session history.\n")
 temp_history = []
 
 while True:
     user_input = input("You: ")
 
-    #exit
     if user_input.lower() == "exit":
         print("Chatbot: Ending the conversation. Have a great day!")
         break
-    
-
-    # Clear in-memory conversation
     if user_input.lower() == "clear":
-        temp_history = []  # reset only the in-memory history
-        clear_conversation(session_id)  # delete messages from Cosmos DB
+        temp_history = []
         os.system("cls" if os.name == "nt" else "clear")
+        clear_conversation(session_id)
         print("Chatbot: Conversation cleared! Let's start fresh.")
         continue
-
-     # Restart session
     if user_input.lower() == "restart":
-        os.system("cls" if os.name == "nt" else "clear")
+        temp_history = []
         restart_session()
         print("Chatbot: Session restarted! Ready for a new conversation.")
         continue
-
-        #show conversation history
-
     if user_input.lower() == "show history":
-    # Load all messages from Cosmos DB for the current session
         history = load_messages(session_id)
         if not history:
             print("Chatbot: No messages found for this session.")
         else:
-            print("Chatbot: Here is the conversation history for this session:\n")
+            print("Chatbot: Conversation history:\n")
             for msg in history:
                 print(f"{msg['role'].capitalize()}: {msg['content']}")
         continue
@@ -174,64 +188,18 @@ while True:
     # Save user message
     save_message(session_id, "user", user_input)
 
-    # Load conversation history
+    # Load history and summarize if too long
     history = load_messages(session_id)
-    print(type(history))
-    extension_config = [
-        {
-            "type": "azure_search",
-            "parameters": {
-                "endpoint": azure_search_endpoint,     # e.g. https://<search>.search.windows.net
-                "index_name": azure_search_index,      # your index name
-                "authentication": {
-                    "type": "api_key",
-                    "key": azure_search_key,
-                },
-                "in_scope": False,
-            },
-        }
-    ]
-
-    # Summarize if conversation is very long
     if len(history) > SUMMARIZE_AFTER:
-        summary_text = summarize_conversation(history[:-10])  # summarize all except last 10
+        summary_text = summarize_conversation(history[:-10])
         history = [{"role": "system", "content": f"Summary of earlier conversation: {summary_text}"}] + history[-10:]
 
-    # Token-based trimming
     history = trim_history(history)
 
     try:
-        # Generate response with context
- 
-        completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a researcher specialized in AI. "
-                    "Always provide detailed and accurate responses "
-                    "based on trusted sources such as academic papers and official docs  and docs provided for you using ai search . "
-                    "End each response by asking if you can help with anything else."
-                )
-            }
-        ] + history,   #  history includes both user + assistant messages
-        max_tokens=500,
-        temperature=0.2,
-        top_p=0.9,
-        presence_penalty=0.6,
-        frequency_penalty=0.5,
-        extra_body={"data_sources": extension_config}
-    )
-      
-        # Extract assistant reply
-        response = completion.choices[0].message.content
+        response = generate_rag_response(user_input, history)
         print(f"Chatbot: {response}\n")
-
-        # Save assistant message
         save_message(session_id, "assistant", response)
-
-    # Error Handling
     except APIConnectionError as e:
         print("The server could not be reached")
         print(e.cause)
@@ -239,8 +207,7 @@ while True:
         print("A 429 status code was received; please slow down.")
     except APIStatusError as e:
         print("Another non-200-range status code was received")
-        print(e.status_code)
-        print(e.response)
+        print(e.status_code, e.response)
     except Exception as e:
         print("Your code ran into an error")
-        print(f"{e}")
+        print(e)
