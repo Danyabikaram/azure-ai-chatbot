@@ -126,13 +126,13 @@ Extracted clean text/structured data from these documents, which was then embedd
 
 At runtime, the chatbot retrieves documents that were originally processed through Document Intelligence.
 
-5. Azure Cognitive Search (Vector Database)
+5.Azure Cognitive Search (Vector Database)
 
 Stores embeddings generated from Document Intelligence–processed content.
 
 Provides fast similarity search against the knowledge base.
 
-6. Azure OpenAI Service (GPT-4o)
+6.Azure OpenAI Service (GPT-4o)
 
 Handles query understanding and response generation.
 
@@ -161,7 +161,7 @@ Cognitive Search returns top chunks of documents that were originally extracted 
 
 If no relevant results are found → the Function App sets a fallback flag: “Not in knowledge base.”
 
-5. AI Request (OpenAI GPT-4o):If results exist → user query + retrieved context are passed to GPT-4o for grounded response.
+5.AI Request (OpenAI GPT-4o):If results exist → user query + retrieved context are passed to GPT-4o for grounded response.
    
 6.Response Handling (Cosmos DB):Logs and conversation history are stored in Cosmos DB for future analysis.
 
