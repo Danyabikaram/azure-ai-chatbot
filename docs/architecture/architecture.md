@@ -102,5 +102,74 @@ The retrieved context is passed along with the user’s message.
 11. User Output: The chatbot displays the reply in the CLI, completing the interaction loop.
 
 
+# Architecture – V1.2 
+
+##Design Decisions
+
+1.CLI for User Interaction
+
+Users interact with the chatbot via a Command Line Interface (CLI).
+
+2.Reuse Existing Resource Group
+
+Use the Resource Group from Lab 1 to manage all resources efficiently.
+
+3.Azure Blob Storage
+
+Holds the already uploaded documents that form the knowledge base.
+
+4.Azure Document Intelligence
+
+Used during knowledge base preparation to preprocess documents (PDFs, images, handwritten text).
+
+Extracted clean text/structured data from these documents, which was then embedded and indexed in Cognitive Search.
+
+At runtime, the chatbot retrieves documents that were originally processed through Document Intelligence.
+
+5. Azure Cognitive Search (Vector Database)
+
+Stores embeddings generated from Document Intelligence–processed content.
+
+Provides fast similarity search against the knowledge base.
+
+6. Azure OpenAI Service (GPT-4o)
+
+Handles query understanding and response generation.
+
+If no relevant documents are retrieved, it returns: “This information is not in my knowledge.”
+
+7.Azure Cosmos DB
+
+Maintains session state and logs conversation history for continuity.
+
+8.Function App Deployment
+
+Acts as middleware: receives user input from CLI, queries Cognitive Search, manages session, and forwards enriched context to GPT-4o.
+
+##Data Flow
+
+1.User Input (CLI):The user types a question into the CLI chatbot.
+
+2.Application Processing (Function App):The Function App receives the query and generates embeddings for the question.
+
+3.Session Check (Cosmos DB):The Function App retrieves the user’s session history from Cosmos DB to maintain continuity.
+
+4.Document Retrieval (Cognitive Search):
+The Function App queries Azure Cognitive Search with the question’s embeddings.
+
+Cognitive Search returns top chunks of documents that were originally extracted and embedded using Document Intelligence.
+
+If no relevant results are found → the Function App sets a fallback flag: “Not in knowledge base.”
+
+5. AI Request (OpenAI GPT-4o):If results exist → user query + retrieved context are passed to GPT-4o for grounded response.
+   
+6.Response Handling (Cosmos DB):Logs and conversation history are stored in Cosmos DB for future analysis.
+
+7.Response Returned :The Function App sends the final reply back to the CLI chatbot.
+
+8.User Output (CLI):The chatbot displays the grounded response or the fallback “not in knowledge” message.
+
+
+
 ## Note
 This diagram and doc will be updated in later labs .
