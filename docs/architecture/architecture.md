@@ -104,7 +104,7 @@ The retrieved context is passed along with the user’s message.
 
 # Architecture – V1.2 
 
-##Design Decisions
+## Design Decisions
 
 1.CLI for User Interaction
 
@@ -146,7 +146,7 @@ Maintains session state and logs conversation history for continuity.
 
 Acts as middleware: receives user input from CLI, queries Cognitive Search, manages session, and forwards enriched context to GPT-4o.
 
-##Data Flow
+## Data Flow
 
 1.User Input (CLI):The user types a question into the CLI chatbot.
 
