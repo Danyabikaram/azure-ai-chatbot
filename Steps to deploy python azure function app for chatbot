@@ -21,11 +21,11 @@ az functionapp create `
   --os-type Linux
  
 3.Publish Function Code to Azure:    
-func azure functionapp publish my-chatbot-func --python      #This command uploads your local code to the Function App
+func azure functionapp publish my-chatbot-func1 --python      #This command uploads your local code to the Function App
 
 4.List Deployed Functions and Endpoints:    
 az functionapp function list `
-  --name my-chatbot-func `
+  --name my-chatbot-func1 `
   --resource-group <RESOURCEGROUP> `
   --query "[].invokeUrlTemplate" -o tsv   #This shows the full HTTP trigger URLs for your deployed functions.
 
