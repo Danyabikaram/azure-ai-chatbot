@@ -97,4 +97,46 @@ AZURE_SEARCH_KEY = "<Your Azure Search Key>"
 AZURE_SEARCH_INDEX = "<Your Azure Search Index Name>"
 
 
-                                  
+## Prerequisites: Document Intelligence & Knowledge Base Setup
+
+Before running the chatbot with RAG, make sure you have processed and indexed your documents.
+
+1. Create Document Intelligence Resource
+
+In the Azure portal, create a Document Intelligence resource.
+
+Upload your documents (PDFs, images, scanned, or handwritten).
+
+2. Analyze Documents
+
+Use Document Intelligence Studio or SDK to analyze documents.
+
+Export the analysis as JSON files.
+
+3. Clean Extracted JSON
+
+Keep only the content text and remove unnecessary metadata.
+
+This ensures embeddings are generated only from meaningful text.
+
+4. Upload to Blob Storage
+
+Create a container in Azure Blob Storage.
+
+Upload the cleaned JSON files to the container.
+
+5. Import into Azure AI Search (Vector Database)
+
+In Azure AI Search:
+
+Create a new index.
+
+Import documents from Blob Storage.
+
+Enable vectorization with text-embedding-3-large.
+
+## API Configuration
+Add the following environment variables to your .env file:
+AZURE_EMBED_ENDPOINT=""
+AZURE_EMBED_KEY= ""
+AZURE_EMBED_DEPLOYMENT=""
