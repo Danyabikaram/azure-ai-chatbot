@@ -2,42 +2,59 @@ import os
 import uuid
 from dotenv import load_dotenv
 import tiktoken
+import numpy as np
 from openai import AzureOpenAI, APIConnectionError, RateLimitError, APIStatusError
 from azure.cosmos import CosmosClient
 from azure.cosmos.partition_key import PartitionKey
+from azure.search.documents import SearchClient
+from azure.search.documents.models import VectorizedQuery
+from azure.core.credentials import AzureKeyCredential
 
-
+# ---------------------------
 # Load environment variables
-
+# ---------------------------
 load_dotenv()
 
 # Azure OpenAI configuration
 AZURE_OAI_ENDPOINT = os.getenv("AZURE_OAI_ENDPOINT")
 AZURE_OAI_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OAI_DEPLOYMENT = os.getenv("AZURE_CHAT_DEPLOYMENT")  
+AZURE_OAI_DEPLOYMENT = os.getenv("AZURE_CHAT_DEPLOYMENT")  # e.g., gpt-4o
 
-# Azure Search (for RAG extensions)
-AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
-AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
-AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
+# Embedding configuration
+AZURE_EMBED_ENDPOINT = os.getenv("AZURE_EMBED_ENDPOINT")
+AZURE_EMBED_KEY = os.getenv("AZURE_EMBED_KEY")
+AZURE_EMBED_DEPLOYMENT = os.getenv("AZURE_EMBED_DEPLOYMENT")  # e.g., text-embedding-3-large
 
-# Cosmos DB configuration
+# Cosmos DB configuration (for sessions)
 COSMOS_URI = os.getenv("COSMOS_URI")
 COSMOS_KEY = os.getenv("COSMOS_KEY")
 DATABASE_NAME = "ChatbotDB"
 CONTAINER_NAME = "Sessions"
 
+# Azure AI Search configuration (for embedded docs)
+AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
+AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
+AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
+AZURE_SEARCH_TEXT_FIELD = os.getenv("AZURE_SEARCH_TEXT_FIELD", "content")  # Use your actual text field name
+AZURE_SEARCH_EMBED_FIELD = os.getenv("AZURE_SEARCH_EMBED_FIELD", "embedding")  # Use your actual vector field name
 
+# ---------------------------
 # Initialize Azure clients
-
+# ---------------------------
 try:
     chat_client = AzureOpenAI(
         base_url=AZURE_OAI_ENDPOINT,
         api_key=AZURE_OAI_KEY,
         api_version="2024-12-01-preview"
     )
+
+    embedding_client = AzureOpenAI(
+        base_url=AZURE_EMBED_ENDPOINT,
+        api_key=AZURE_EMBED_KEY,
+        api_version="2023-05-15"
+    )
 except Exception as e:
-    print("Error initializing Azure OpenAI client:", e)
+    print("Error initializing Azure OpenAI clients:", e)
     exit(1)
 
 # Cosmos DB client
@@ -48,9 +65,12 @@ container = database.create_container_if_not_exists(
     partition_key=PartitionKey(path="/sessionId")
 )
 
+# Azure AI Search client
+search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=AZURE_SEARCH_INDEX, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
 
+# ---------------------------
 # Session Management
-
+# ---------------------------
 session_id = str(uuid.uuid4())
 print(f"Your SessionID: {session_id}")
 
@@ -79,9 +99,9 @@ def clear_conversation(session_id):
     for item in items:
         container.delete_item(item["id"], partition_key=item["sessionId"])
 
-
+# ---------------------------
 # Token & Summarization
-
+# ---------------------------
 encoding = tiktoken.encoding_for_model("gpt-4o")
 MAX_TOKENS = 4000
 RESERVED_TOKENS = 500
@@ -93,7 +113,7 @@ def num_tokens_from_messages(messages):
 def trim_history(history):
     while num_tokens_from_messages(history) > (MAX_TOKENS - RESERVED_TOKENS):
         if len(history) > 2:
-            history.pop(1)  # remove earliest non-system message
+            history.pop(1)
         else:
             break
     return history
@@ -110,33 +130,50 @@ def summarize_conversation(history):
     )
     return summary.choices[0].message.content
 
+# ---------------------------
+# Embedding & Similarity Search
+# ---------------------------
+def retrieve_relevant_docs(user_input, k=3):
+    print(f"Retrieving docs for query: '{user_input}'")
 
-# RAG using Azure OpenAI extensions
+    # Generate embedding
+    query_embedding = embedding_client.embeddings.create(
+        model=AZURE_EMBED_DEPLOYMENT,
+        input=user_input
+    ).data[0].embedding
+    print(f"Query embedding generated, length: {len(query_embedding)}")
 
-extension_config = [
-    {
-        "type": "azure_search",
-        "parameters": {
-            "endpoint": AZURE_SEARCH_ENDPOINT,
-            "index_name": AZURE_SEARCH_INDEX,
-            "authentication": {"type": "api_key", "key": AZURE_SEARCH_KEY},
-            "in_scope": True,
-        },
-    }
-]
+    # Perform vector search
+    results = search_client.search(
+        search_text="",
+        vector_queries=[VectorizedQuery(vector=query_embedding, k_nearest_neighbors=k, fields=AZURE_SEARCH_EMBED_FIELD)],
+        select=[AZURE_SEARCH_TEXT_FIELD]
+    )
 
+    docs = list(results)
+    print(f"Found {len(docs)} documents in search index")
+
+    if not docs:
+        return "No documents available for retrieval."
+
+    # Safely join text fields
+    top_docs = docs[:k]
+    result = "\n\n".join([str(doc.get(AZURE_SEARCH_TEXT_FIELD) or "") for doc in top_docs])
+    print(f"Returning {len(result)} characters of context")
+    return result
+
+# ---------------------------
+# Generate RAG response
+# ---------------------------
 def generate_rag_response(user_query, history):
+    top_docs_text = retrieve_relevant_docs(user_query, k=3)
+
     messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are an AI assistant. ONLY answer questions using information retrieved from documents via RAG. "
-                "Do NOT use your own knowledge. If the answer is not in the documents, respond with 'I don't know.' "
-                "Include references or links whenever possible. Provide clear step-by-step explanations and examples. "
-                "After the answer, suggest related topics or next steps, and ask if the user wants further help."
-            )
-        },
-        {"role": "user", "content": user_query}
+        {"role": "system", "content": (
+            "You are an AI assistant. ONLY answer questions using the retrieved documents. "
+            "If the answer is not in the documents, respond with 'I don't know.'"
+        )},
+        {"role": "user", "content": user_query + "\n\nContext:\n" + top_docs_text}
     ] + history[-10:]
 
     response = chat_client.chat.completions.create(
@@ -146,16 +183,15 @@ def generate_rag_response(user_query, history):
         temperature=0.2,
         top_p=0.9,
         presence_penalty=0.6,
-        frequency_penalty=0.5,
-        extra_body={"data_sources": extension_config}  #  pass your RAG source here
+        frequency_penalty=0.5
     )
 
     return response.choices[0].message.content
 
-
+# ---------------------------
 # Chat Loop
-
-print("Chatbot: Hello! Type 'exit' to quit, 'clear' to clear conversation(also from cosmosDB), 'restart' for a new session, 'show history' to view session history.\n")
+# ---------------------------
+print("Chatbot: Hello! Type 'exit' to quit, 'clear' to clear conversation, 'restart' for a new session, 'show history' to view session history.\n")
 temp_history = []
 
 while True:
@@ -166,7 +202,6 @@ while True:
         break
     if user_input.lower() == "clear":
         temp_history = []
-        os.system("cls" if os.name == "nt" else "clear")
         clear_conversation(session_id)
         print("Chatbot: Conversation cleared! Let's start fresh.")
         continue
@@ -185,10 +220,8 @@ while True:
                 print(f"{msg['role'].capitalize()}: {msg['content']}")
         continue
 
-    # Save user message
     save_message(session_id, "user", user_input)
 
-    # Load history and summarize if too long
     history = load_messages(session_id)
     if len(history) > SUMMARIZE_AFTER:
         summary_text = summarize_conversation(history[:-10])
@@ -211,3 +244,4 @@ while True:
     except Exception as e:
         print("Your code ran into an error")
         print(e)
+
