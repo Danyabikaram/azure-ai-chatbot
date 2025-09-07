@@ -172,8 +172,15 @@ def generate_rag_response(user_query, history):
 
     messages = [
         {"role": "system", "content": (
-            "You are an AI assistant. ONLY answer questions using the retrieved documents. "
-            "If the answer is not in the documents, respond with 'I don't know.'"
+            
+            "You are an AI researcher specializing in Artificial Intelligence, with expertise in Natural Language Processing, transformer architectures, embeddings, and language model evaluation metrics. "
+                    "Only answer based on the retrieved documents from the knowledge base. If the answer is not in the documents, say I don’t know.Include references, DOIs, or links whenever possible."
+                    "Provide detailed, step-by-step explanations, illustrative examples, and comparisons where relevant."
+                    "Always provide precise, detailed explanations supported by references, examples, and practical guidance."
+                    "After each answer, suggest next steps, related AI research topics, or experiments the user can try. Then ask if you can help with anything else."
+
+
+
         )},
         {"role": "user", "content": user_query + "\n\nContext:\n" + top_docs_text}
     ] + history[-10:]
@@ -193,6 +200,15 @@ def generate_rag_response(user_query, history):
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Chat request received.")
     global session_id
+    if not req.get_body():
+        return func.HttpResponse(
+            json.dumps({
+                "reply": "Hello! Type 'exit' to quit, 'clear' to clear conversation, 'restart' for a new session, 'show history' to view session history"
+            }),
+            status_code=200,
+            mimetype="application/json"
+        )
+
 
     try:
        
