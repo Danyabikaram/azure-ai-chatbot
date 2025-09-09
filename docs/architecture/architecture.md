@@ -148,27 +148,37 @@ Acts as middleware: receives user input from CLI, queries Cognitive Search, mana
 
 ## Data Flow
 
-1.User Input (CLI):The user types a question into the CLI chatbot.
+Admin Workflow
 
-2.Application Processing (Function App):The Function App receives the query and generates embeddings for the question.
+1-Admin Input: Admin uploads documents into the system.
 
-3.Session Check (Cosmos DB):The Function App retrieves the user’s session history from Cosmos DB to maintain continuity.
+2-Function App → Document Intelligence: Function App sends documents to Document Intelligence.
+Document Intelligence extracts structured text from the uploaded files.
 
-4.Document Retrieval (Cognitive Search):
-The Function App queries Azure Cognitive Search with the question’s embeddings.
+3-Embeddings & Storage: Extracted text is converted into embeddings using Text-Embedding-3-Small.
+Embeddings are indexed in Azure Cognitive Search.
 
-Cognitive Search returns top chunks of documents that were originally extracted and embedded using Document Intelligence.
 
-If no relevant results are found → the Function App sets a fallback flag: “Not in knowledge base.”
+User Data Flow
 
-5.AI Request (OpenAI GPT-4o):If results exist → user query + retrieved context are passed to GPT-4o for grounded response.
-   
-6.Response Handling (Cosmos DB):Logs and conversation history are stored in Cosmos DB for future analysis.
+1.User Input : The User types a question .The Function App receives the query.
 
-7.Response Returned :The Function App sends the final reply back to the CLI chatbot.
+2.Session Check (Cosmos DB): The Function App queries Cosmos DB to check for existing session history.
+Past interactions are retrieved to maintain continuity in the conversation.
 
-8.User Output (CLI):The chatbot displays the grounded response or the fallback “not in knowledge” message.
+3.Embedding Generation:The Function App generates embeddings for the user’s query using OpenAI service (text-embedding-3-large)
 
+4.Document Retrieval (Azure Cognitive Search):The query embeddings are used to search Azure Cognitive Search.
+Relevant document chunks (previously uploaded by Admin and processed via Document Intelligence) are returned.
+If no relevant results → Function App sets a fallback flag: “Not in knowledge base.”
+
+5.Response Generation (GPT-4o):
+If relevant results exist → the Function App sends the user query + retrieved context to GPT-4o.
+GPT-4o generates a grounded, natural-language response.
+
+6.Response Handling (Cosmos DB):The Function App logs the response and updates conversation history in Cosmos DB
+
+7.Response Delivery:The final response (or fallback message) is returned to the user.
 
 
 ## Note
