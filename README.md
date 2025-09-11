@@ -1,28 +1,29 @@
 # Azure AI Chatbot
+The Azure AI Chatbot is a console-based application powered by the GPT-4o model on Azure OpenAI. It integrates Retrieval-Augmented Generation (RAG) with Azure Cognitive Search and Document Intelligence to provide context-aware responses from uploaded documents. The bot also includes speech-to-text and text-to-speech capabilities, enabling natural voice interaction. It greets the user, processes input, generates accurate responses enriched with retrieved knowledge, and offers follow-up assistance, demonstrating real-time AI interaction with robust error handling.
 
-The Azure AI Chatbot provides an interactive console-based conversation using the GPT-4o model on Azure OpenAI. It greets the user, processes input, generates responses, and asks if further assistance is needed. The chat continues until the user types exit, demonstrating real-time AI interaction and error-handling capabilities.
+## Features
+- Powered by GPT-4o with Azure OpenAI  
+- Retrieval-Augmented Generation (RAG) using Azure Cognitive Search  
+- Document Intelligence integration for knowledge extraction  
+- Speech-to-text and text-to-speech for natural voice interaction  
+- Cosmos DB for storing user sessions and context  
+- Error handling for reliable conversation flow  
+- Deployable as an Azure Function App
+
+## Prerequisites
+
+Before setting up the chatbot, ensure you have the following:
+
+- Git installed for cloning the repository  
+- An Azure subscription with access to:  
+  - Azure OpenAI (for GPT-4o and embeddings)  
+  - Azure Cognitive Search (for RAG)  
+  - Azure Document Intelligence (for document preprocessing)  
+  - Azure Cosmos DB (for storing session data)  
+  - Azure Blob Storage (for document storage)  
+
 
 # Setup
-
-## Prerequisites: Set up Azure OpenAI Connection
-
-Go to Azure AI Studio
-Click Create new → choose Azure AI Foundry project.
-Fill in:
-Name: a unique project name
-Subscription: your Azure subscription
-Resource group: new or existing
-Region: must be one of the supported ones for GPT-4o (East US, France Central, Korea Central, West Europe, West US).
-
-Wait for the project to be created.
-
-In the left menu, go to Playgrounds → Chat playground.
-In the Setup pane, click + Create a deployment.
-Pick From base models → gpt-4o.
-Confirm and wait for the deployment.
-After deployment:
-You can test it in the Chat playground.
-You can get your endpoint + API key from Management Center → All Resources → your AI Foundry project.
 
 1. Clone this repo:
    ```bash
@@ -34,29 +35,43 @@ You can get your endpoint + API key from Management Center → All Resources →
 
 3. Set environment variables:
 Create a .env file:
-   AZURE_OPENAI_API_KEY=<your_api_key_here>
 
-   AZURE_OPENAI_ENDPOINT<=https://your-endpoint-here.openai.azure.com/>
    
-
-4. Run the chatbot:
-python chatbot.py
-
-Type exit to quit.
-
-
 ## API configuration
+Add the following environment variables to your .env file:
 
-The chatbot uses your Azure OpenAI resource:
+AZURE_OPENAI_API_KEY=<your_api_key_here>
 
-Endpoint: Provided in your Azure resource (example:
-https://azureopenai-lab00-eus2-resource.openai.azure.com/)
+AZURE_OAI_ENDPOINT<=https://your-endpoint-here.openai.azure.com/>
 
-API Key: Found under Keys and Endpoint in the Azure OpenAI portal
+AZURE_CHAT_DEPLOYMENT="gpt-4o"
 
-API Version: Currently set to 2024-10-21
+AZURE_EMBED_ENDPOINT= <embedded_model_endpoit>
 
-Model: gpt-4o 
+AZURE_EMBED_KEY= <embedded_model_key>
+
+AZURE_EMBED_DEPLOYMENT="text-embedding-3-large"
+   
+COSMOS_URI = <Your_cosmosDB_URI>
+
+COSMOS_KEY = <Your_Cosmos_DB_Key>
+
+AZURE_SEARCH_ENDPOINT = <your_Azure_Search_Endpoint>
+
+AZURE_SEARCH_KEY = "<Your_Azure_Search_Key>"
+
+AZURE_SEARCH_INDEX = "<Your_Azure_Search_Index_Name>"
+
+AZURE_SEARCH_INDEX= <your_index_name>
+
+AZURE_SEARCH_TEXT_FIELD = "chunk"
+
+AZURE_SEARCH_EMBED_FIELD = "text_vector"
+
+AZURE_BLOB_CONNECTION_STRING = <azure_blob_endpoint>
+
+BLOB_CONTAINER_NAME = <your_blob_container_name>
+
 
 
 ## Usage example
@@ -74,69 +89,21 @@ AI: Goodbye!If you have any more questions or need further assistance, feel free
 ## Deploying Python Azure Function App for Chatbot
 To deploy the code into a function app in azure, first update your code to the code mentioned in the"__init__.py " file for online use then follow the steps mentioned in the file "Steps to deploy python azure function app for chatbot"
 
-## Prerequisites for RAG deployment
+## Architecture
+The chatbot uses Azure Functions to handle user input, calls Azure OpenAI for response generation, integrates with Cognitive Search and Document Intelligence for RAG-based context, and uses Cosmos DB for session history.  
 
-1.Create Azure Resources: Azure Cognitive Search Service – to index and search documents.And an Azure Storage Account – to store your documents.
-                         
-2.Upload Documents:In your Storage Account, create a Blob Container. Upload all the documents you want the chatbot to use for retrieval.
-                   
-3.Configure AI Models:In your Azure AI Foundry (previously created), add a Text Embedding Model to GPT-4o.This embedding model will be used for semantic search in your RAG pipeline.
+
                       
-4.Create an Index in Azure Search:Use the embedding model to create a search index. this index will enable the chatbot to retrieve relevant document chunks.
 
 
-## API configuration
-COSMOS_URI = "<Your Cosmos DB URI>"
-
-COSMOS_KEY = "<Your Cosmos DB Key>"
-
-AZURE_SEARCH_ENDPOINT = <your Azure Search Endpoint>
-
-AZURE_SEARCH_KEY = "<Your Azure Search Key>"
-
-AZURE_SEARCH_INDEX = "<Your Azure Search Index Name>"
 
 
-## Prerequisites: Document Intelligence & Knowledge Base Setup
 
-Before running the chatbot with RAG, make sure you have processed and indexed your documents.
 
-1. Create Document Intelligence Resource
 
-In the Azure portal, create a Document Intelligence resource.
 
-Upload your documents (PDFs, images, scanned, or handwritten).
 
-2. Analyze Documents
 
-Use Document Intelligence Studio or SDK to analyze documents.
 
-Export the analysis as JSON files.
 
-3. Clean Extracted JSON
 
-Keep only the content text and remove unnecessary metadata.
-
-This ensures embeddings are generated only from meaningful text.
-
-4. Upload to Blob Storage
-
-Create a container in Azure Blob Storage.
-
-Upload the cleaned JSON files to the container.
-
-5. Import into Azure AI Search (Vector Database)
-
-In Azure AI Search:
-
-Create a new index.
-
-Import documents from Blob Storage.
-
-Enable vectorization with text-embedding-3-large.
-
-## API Configuration
-Add the following environment variables to your .env file:
-AZURE_EMBED_ENDPOINT=""
-AZURE_EMBED_KEY= ""
-AZURE_EMBED_DEPLOYMENT=""
