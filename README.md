@@ -20,7 +20,7 @@ Before setting up the chatbot, ensure you have the following:
   - Azure Cognitive Search (for RAG)  
   - Azure Document Intelligence (for document preprocessing)  
   - Azure Cosmos DB (for storing session data)  
-  - Azure Blob Storage (for document storage)  
+  - Azure Speech Service (to add speech to text and text to speech capabilities)
 
 
 # Setup
@@ -75,22 +75,20 @@ BLOB_CONTAINER_NAME = <your_blob_container_name>
 
 
 ## Usage example
-AI: Hello! How can I assist you today? 👋
+AI: Hello, I am your AI assistant, here to help you explore Artificial Intelligence. Please feel free to ask me anything related to AI
 
-enter a prompt: when was google invented?
+enter a prompt: what is AI?
 
-AI: Google was invented in 1998 by Larry Page and Sergey Brin while they were Ph.D. students at Stanford University in California. Would you like to know more about Google's history or anything else?
+AI: Artificial Intelligence (AI) is a field of computer science that focuses on building systems capable of performing tasks that usually require human intelligence.
+Would you like me to dive into the types of AI?
 
-enter a prompt: exit
-
-AI: Goodbye!If you have any more questions or need further assistance, feel free to ask. 
 
 
 ## Deploying Python Azure Function App for Chatbot
 To deploy the code into a function app in azure, first update your code to the code mentioned in the"__init__.py " file for online use then follow the steps mentioned in the file "Steps to deploy python azure function app for chatbot"
 
 ## Architecture
-The chatbot uses Azure Functions to handle user input, calls Azure OpenAI for response generation, integrates with Cognitive Search and Document Intelligence for RAG-based context, and uses Cosmos DB for session history.  
+The chatbot uses Azure Functions to handle user input, calls Azure OpenAI for response generation, integrates with Cognitive Search and Document Intelligence for RAG-based context, uses Cosmos DB for session history andleverages Azure Speech Service for speech-to-text and text-to-speech capabilities.
 
 
                       
