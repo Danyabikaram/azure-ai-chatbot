@@ -1,0 +1,13 @@
+azure-functions
+openai
+python-dotenv
+httpx
+azure-cosmos
+tiktoken
+numpy
+azure-search-documents>=11.4.0
+flask
+azure-ai-documentintelligence
+azure-storage-blob
+azure-cognitiveservices-speech
+azure-search-documents[vector-search]>=11.4.0

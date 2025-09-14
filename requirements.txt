@@ -1,9 +1,0 @@
-azure-functions
-openai
-python-dotenv
-httpx
-azure-cosmos
-tiktoken
-numpy
-azure-search-documents
-flask
