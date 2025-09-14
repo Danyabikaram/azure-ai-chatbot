@@ -1,64 +1,45 @@
-import azure.cognitiveservices.speech as speechsdk
-import time
-from threading import Lock
+import uuid
+import json
+import os
 
-# Initialize speech config in config.py and import here if needed
+# Directory for session files
+SESSIONS_DIR = "sessions"
+if not os.path.exists(SESSIONS_DIR):
+    os.makedirs(SESSIONS_DIR)
 
-# Rate limiting variables
-last_request_time = 0
-min_request_interval = 1.0  # Minimum 1 second between requests
-rate_limit_lock = Lock()
+# Initialize session
+session_id = str(uuid.uuid4())
+print(f"Your SessionID: {session_id}")
 
-def recognize_speech(speech_config):
-    global last_request_time
+def restart_session():
+    global session_id
+    session_id = str(uuid.uuid4())
+    print(f"\nNew Session started. Your SessionID: {session_id}\n")
+    return session_id
 
-    with rate_limit_lock:
-        current_time = time.time()
-        time_since_last_request = current_time - last_request_time
+def save_message(session_id, role, content):
+    session_file = os.path.join(SESSIONS_DIR, f"{session_id}.json")
+    messages = []
+    if os.path.exists(session_file):
+        with open(session_file, 'r') as f:
+            messages = json.load(f)
+    messages.append({
+        "id": str(uuid.uuid4()),
+        "role": role,
+        "content": content
+    })
+    with open(session_file, 'w') as f:
+        json.dump(messages, f, indent=4)
 
-        if time_since_last_request < min_request_interval:
-            sleep_time = min_request_interval - time_since_last_request
-            print(f"Rate limiting: waiting {sleep_time:.1f} seconds before next request...")
-            time.sleep(sleep_time)
+def load_messages(session_id):
+    session_file = os.path.join(SESSIONS_DIR, f"{session_id}.json")
+    if not os.path.exists(session_file):
+        return []
+    with open(session_file, 'r') as f:
+        messages = json.load(f)
+    return [{"role": msg["role"], "content": msg["content"]} for msg in messages]
 
-        last_request_time = time.time()
-
-    audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
-    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
-
-    print("Speak into your microphone.")
-    max_retries = 3
-    for attempt in range(max_retries):
-        result = speech_recognizer.recognize_once_async().get()
-        if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-            print(f"Recognized: {result.text}")
-            return result.text
-        elif result.reason == speechsdk.ResultReason.NoMatch:
-            print("No speech could be recognized.")
-            return None
-        elif result.reason == speechsdk.ResultReason.Canceled:
-            cancellation = result.cancellation_details
-            print(f"Speech Recognition canceled: {cancellation.reason}")
-            if cancellation.reason == speechsdk.CancellationReason.Error:
-                print(f"Error details: {cancellation.error_details}")
-                if "429" in cancellation.error_details:
-                    if attempt < max_retries - 1:
-                        wait_time = 2 ** attempt
-                        print(f"Rate limit hit, retrying in {wait_time} seconds...")
-                        time.sleep(wait_time)
-                        continue
-            return None
-
-def synthesize_speech(speech_config, text):
-    audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
-    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
-
-    result = synthesizer.speak_text_async(text).get()
-
-    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-        print("Speech synthesized to speaker for text:", text)
-    elif result.reason == speechsdk.ResultReason.Canceled:
-        cancellation = result.cancellation_details
-        print(f"Speech synthesis canceled: {cancellation.reason}")
-        if cancellation.reason == speechsdk.CancellationReason.Error:
-            print(f"Error details: {cancellation.error_details}")
+def clear_conversation(session_id):
+    session_file = os.path.join(SESSIONS_DIR, f"{session_id}.json")
+    if os.path.exists(session_file):
+        os.remove(session_file)

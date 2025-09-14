@@ -148,7 +148,7 @@ let sessionId = localStorage.getItem('sessionId');
 
 async function fetchSessionId() {
     try {
-        const response = await fetch('https://my-chatbot-func1.azurewebsites.net/api/online-chat', {
+        const response = await fetch('https://my-chatbot-func00.azurewebsites.net/api/online-chat', {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -255,7 +255,7 @@ async function sendMessage(message) {
     userInput.value = '';
 
     try {
-        const response = await fetch('http://localhost:7071/api/online-chat', {
+        const response = await fetch('https://my-chatbot-func00.azurewebsites.net/api/online-chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_input: message, session_id: sessionId })

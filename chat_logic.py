@@ -64,7 +64,7 @@ def generate_rag_response(user_input, history, relevant_docs):
         context_text = context_text[:MAX_TOKENS // 2]  # hard truncate to fit budget
 
     system_prompt = (
-        "You are an AI specialized assistant. "
+        "You are an assistant. "
         "Only answer based on the retrieved documents. "
         "If the answer is not in the documents, say 'I don't know'. "
         "Explain details briefly and provide references. "

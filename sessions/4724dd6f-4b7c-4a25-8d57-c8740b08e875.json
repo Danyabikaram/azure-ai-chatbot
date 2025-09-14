@@ -1,0 +1,12 @@
+[
+    {
+        "id": "d2ffdffb-170a-4c1b-9f5e-6714e12ed598",
+        "role": "user",
+        "content": "what is neural netwrok"
+    },
+    {
+        "id": "63b2e172-cffc-4bf8-88fc-0893e6e2d94b",
+        "role": "assistant",
+        "content": "A neural network is a type of artificial intelligence model designed to mimic the structure and functioning of the human brain. It consists of layers of interconnected nodes (or \"neurons\") that process data by recognizing patterns, learning from examples, and making decisions. Neural networks are commonly used in machine learning and deep learning applications for tasks such as image recognition, natural language processing, and predictive analytics.\n\nCan I assist you with anything else?"
+    }
+]
