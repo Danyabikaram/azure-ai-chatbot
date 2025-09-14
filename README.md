@@ -91,7 +91,7 @@ Would you like me to dive into the types of AI?
 
 
 ## Deploying Python Azure Function App for Chatbot
-To deploy the code into a function app in azure, follow the steps mentioned in the file "Steps to deploy python azure function app for chatbot".
+To deploy the code into a function app in azure, follow the steps mentioned in the file "Steps to deploy python azure function app for chatbot" in the terminalof the __init_ file.
 
 ## Architecture
 The chatbot uses Azure Functions to handle user input, calls Azure OpenAI for response generation, integrates with Cognitive Search and Document Intelligence for RAG-based context, uses Cosmos DB for session history andleverages Azure Speech Service for speech-to-text and text-to-speech capabilities.
