@@ -62,15 +62,21 @@ AZURE_SEARCH_KEY = "<Your_Azure_Search_Key>"
 
 AZURE_SEARCH_INDEX = "<Your_Azure_Search_Index_Name>"
 
-AZURE_SEARCH_INDEX= <your_index_name>
+AZURE_SEARCH_TEXT_FIELD = content
 
-AZURE_SEARCH_TEXT_FIELD = "chunk"
+AZURE_SEARCH_EMBED_FIELD = embedding
 
-AZURE_SEARCH_EMBED_FIELD = "text_vector"
+AZURE_DI_ENDPOINT=< Document-Intelligence-endpoint>
+
+AZURE_DI_KEY = < Document-Intelligence-key>
 
 AZURE_BLOB_CONNECTION_STRING = <azure_blob_endpoint>
 
 BLOB_CONTAINER_NAME = <your_blob_container_name>
+
+AZURE_SPEECH_KEY = <azure_speech_key>
+
+AZURE_SPEECH_REGION = 'eastus'
 
 
 
