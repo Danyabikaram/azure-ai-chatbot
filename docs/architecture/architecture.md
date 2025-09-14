@@ -1,0 +1,262 @@
+# Architecture – V1.0 without function app
+
+
+## Design Decisions
+1.	Use CLI for user interaction 
+2.	Reuse the Azure Resource from Lab 1 to avoid duplicating resources.
+3.	Deploy GPT-4 in the Azure OpenAI Service to handle natural language queries.
+4.	 Keep architecture modular so that additional services can be added in future labs.
+
+## Data Flow
+1.	User Input:
+   The user types a question or prompt into the Command Line Interface (CLI).
+2.	Application Processing:
+   The Python CLI Chatbot receives the input and formats it as an API request.
+3.	API Request to Azure:
+   The chatbot sends the request to the Azure OpenAI Service endpoint using the deployment key and credentials.
+4.	AI Response Generation:
+   Within the Azure OpenAI Service (inside the Resource Group), the deployed GPT-4o model processes the query and generates a text response.
+5.	Response Returned:
+   The AI response is sent back from Azure OpenAI to the Python CLI Chatbot.
+6.	User Output:
+   The chatbot displays the reply in the CLI, completing the interaction loop.
+
+
+
+# Architecture – V1.0 with function app
+
+## Design Decisions
+
+1.Use HTTP requests from the user (via browser or CLI tools or Postman) to interact with the chatbot.
+
+2.Deploy chatbot code in an Azure Function App, ensuring it runs in the cloud instead of locally.
+
+3.Reuse the Azure Resource Group and Azure OpenAI resource from Lab 1 to avoid duplicating resources.
+
+4.Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
+
+5.Keep the architecture modular and extensible so additional Azure services can be added in future labs.
+Data Flow
+
+## Data Flow
+
+1. User Input:
+   The user sends an HTTP request with a message to the Azure Function App (via CLI, browser, or API call).
+
+2. Application Processing:
+   The Function App (chatbot code) receives the request and prepares an API request.
+
+3. API Request to Azure OpenAI:
+   The Function App sends the request to the Azure OpenAI Service using the deployment key and endpoint.
+
+ 4. AI Response Generation:
+    The deployed GPT-4o model processes the query inside Azure OpenAI and generates a response.
+
+5. Response Returned:
+   The response is sent back from Azure OpenAI to the Function App.
+
+6. User Output:
+   The Function App returns the AI response to the user via the HTTP response, completing the interaction loop.
+
+# Architecture-V1.1
+
+## Design Decisions
+
+1. Use CLI for user interaction.
+
+2. Reuse the Azure Resource Group from Lab 1 to avoid duplicating resources.
+
+3. Deploy GPT-4o in the Azure OpenAI Service to handle natural language queries.
+
+4. Add Session Management (Azure Cosmos DB) to maintain context across multiple user interactions.
+
+5.Use Azure Blob Storage for storing uploaded documents that will be indexed for RAG.
+
+6.Use Azure Cognitive Search to index documents stored in Blob Storage and provide retrieval for grounding GPT-4o responses.
+
+7. Include Azure Storage (Cosmos DB) for storing logs, conversation history, or analytical data.
+
+8.Keep the architecture modular so that additional services can be integrated in future labs.
+
+## Data Flow
+
+1. User Input: The user types a question or prompt into the Command Line Interface (CLI).
+
+2. Application Processing: The Python CLI Chatbot receives the input and formats it as an API request.
+
+3.  Function App Request: The CLI sends the request to the Azure Function App, which acts as the middleware.
+
+4. Session Management: The Function App checks Azure Cosmos DB to fetch or update the user session state.
+   
+5. Document Retrieval (RAG) : The Function App queries Azure Cognitive Search, which retrieves relevant document chunks from Blob Storage.
+The retrieved context is passed along with the user’s message.
+
+6. AI Request : The Function App sends the processed request to the Azure OpenAI Service (GPT-4o deployment).
+
+7. Response Generation : GPT-4o generates a context-aware response using conversation history and retrieved documents.
+   
+8. Response Handling: The Function App stores logs or conversation history in Azure Storage (Cosmos DB).
+
+10. Response Returned: The Function App sends the AI-generated response back to the CLI chatbot.
+
+11. User Output: The chatbot displays the reply in the CLI, completing the interaction loop.
+
+
+# Architecture – V1.2 
+
+## Design Decisions
+
+1.CLI for User Interaction
+
+Users interact with the chatbot via a Command Line Interface (CLI).
+
+2.Reuse Existing Resource Group
+
+Use the Resource Group from Lab 1 to manage all resources efficiently.
+
+3.Azure Blob Storage
+
+Holds the already uploaded documents that form the knowledge base.
+
+4.Azure Document Intelligence
+
+Used during knowledge base preparation to preprocess documents (PDFs, images, handwritten text).
+
+Extracted clean text/structured data from these documents, which was then embedded and indexed in Cognitive Search.
+
+At runtime, the chatbot retrieves documents that were originally processed through Document Intelligence.
+
+5.Azure Cognitive Search (Vector Database)
+
+Stores embeddings generated from Document Intelligence–processed content.
+
+Provides fast similarity search against the knowledge base.
+
+6.Azure OpenAI Service (GPT-4o)
+
+Handles query understanding and response generation.
+
+If no relevant documents are retrieved, it returns: “This information is not in my knowledge.”
+
+7.Azure Cosmos DB
+
+Maintains session state and logs conversation history for continuity.
+
+8.Function App Deployment
+
+Acts as middleware: receives user input from CLI, queries Cognitive Search, manages session, and forwards enriched context to GPT-4o.
+
+## Data Flow
+
+Admin Workflow
+
+1-Admin Input: Admin uploads documents into the system.
+
+2-Function App → Document Intelligence: Function App sends documents to Document Intelligence.
+Document Intelligence extracts structured text from the uploaded files.
+
+3-Embeddings & Storage: Extracted text is converted into embeddings using Text-Embedding-3-Small.
+Embeddings are indexed in Azure Cognitive Search.
+
+
+User Data Flow
+
+1.User Input : The User types a question .The Function App receives the query.
+
+2.Session Check (Cosmos DB): The Function App queries Cosmos DB to check for existing session history.
+Past interactions are retrieved to maintain continuity in the conversation.
+
+3.Embedding Generation:The Function App generates embeddings for the user’s query using OpenAI service (text-embedding-3-large)
+
+4.Document Retrieval (Azure Cognitive Search):The query embeddings are used to search Azure Cognitive Search.
+Relevant document chunks (previously uploaded by Admin and processed via Document Intelligence) are returned.
+If no relevant results → Function App sets a fallback flag: “Not in knowledge base.”
+
+5.Response Generation (GPT-4o):
+If relevant results exist → the Function App sends the user query + retrieved context to GPT-4o.
+GPT-4o generates a grounded, natural-language response.
+
+6.Response Handling (Cosmos DB):The Function App logs the response and updates conversation history in Cosmos DB
+
+7.Response Delivery:The final response (or fallback message) is returned to the user.
+
+# Architecture – V1.3
+## Design Decisions
+
+1.typing + Speech for User Interaction
+Users interact with the chatbot either by typing into the interface or by speaking.
+
+Speech-to-Text (STT): Converts spoken queries into text.
+
+Text-to-Speech (TTS): Converts chatbot responses into spoken audio when requested.
+
+2.Reuse Existing Resource Group
+Use the Resource Group from Lab 1 to manage all resources efficiently.
+
+3.Azure Blob Storage
+Holds the already uploaded documents that form the knowledge base.
+
+4.Azure Document Intelligence
+Used during knowledge base preparation to preprocess documents (PDFs, images, handwritten text).
+Extracted clean text/structured data from these documents, which was then embedded and indexed in Cognitive Search.
+At runtime, the chatbot retrieves documents that were originally processed through Document Intelligence.
+
+5.Azure Cognitive Search (Vector Database)
+Stores embeddings generated from Document Intelligence–processed content.
+Provides fast similarity search against the knowledge base.
+
+6.Azure OpenAI Service (GPT-4o)
+Handles query understanding and response generation.
+If no relevant documents are retrieved, it returns: “This information is not in my knowledge.”
+
+7.Azure Cosmos DB
+Maintains session state and logs conversation history for continuity.
+
+8.Function App Deployment
+Acts as middleware: receives user input (text or speech) from CLI, queries Cognitive Search, manages session, and forwards enriched context to GPT-4o.
+
+Also integrates with Speech services for STT and TTS when needed.
+
+## Data Flow
+Admin Workflow
+
+1.Admin Input: Admin uploads documents into the system.
+
+2.Function App → Document Intelligence: Function App sends documents to Document Intelligence. Document Intelligence extracts structured text from the uploaded files.
+
+3.Embeddings & Storage: Extracted text is converted into embeddings using Text-Embedding-3-Small. Embeddings are indexed in Azure Cognitive Search.
+
+User Workflow
+
+User Input:
+
+1.If text input → User types a question in the interface .
+
+If voice input → Speech-to-Text (STT) converts spoken input into text.
+The Function App receives the processed query.
+
+2.Session Check (Cosmos DB):
+Function App queries Cosmos DB to check for existing session history. Past interactions are retrieved to maintain continuity.
+
+3.Embedding Generation:
+Function App generates embeddings for the user’s query using OpenAI service (text-embedding-3-large).
+
+4.Document Retrieval (Azure Cognitive Search):
+The query embeddings are used to search Azure Cognitive Search.
+Relevant document chunks (uploaded by Admin and processed via Document Intelligence) are returned.
+If no relevant results → Function App sets a fallback flag: “Not in knowledge base.”
+
+5.Response Generation (GPT-4o):
+If relevant results exist → Function App sends user query + retrieved context to GPT-4o. GPT-4o generates a grounded, natural-language response.
+
+6.Response Handling (Cosmos DB):
+Function App logs the response and updates conversation history in Cosmos DB.
+
+7.Response Delivery:
+
+If text response only → Response is displayed in interface.
+
+If voice response requested → Text-to-Speech (TTS) converts response into spoken audio and plays it back.
+
+## Note
+This diagram and doc will be updated in later labs .
