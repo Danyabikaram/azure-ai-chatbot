@@ -182,8 +182,7 @@ GPT-4o generates a grounded, natural-language response.
 
 # Architecture – V1.3
 ## Design Decisions
-
-1.typing + Speech for User Interaction
+1.Typing + Speech for User Interaction
 Users interact with the chatbot either by typing into the interface or by speaking.
 
 Speech-to-Text (STT): Converts spoken queries into text.
@@ -197,17 +196,13 @@ Use the Resource Group from Lab 1 to manage all resources efficiently.
 Holds the already uploaded documents that form the knowledge base.
 
 4.Azure Document Intelligence
-Used during knowledge base preparation to preprocess documents (PDFs, images, handwritten text).
-Extracted clean text/structured data from these documents, which was then embedded and indexed in Cognitive Search.
-At runtime, the chatbot retrieves documents that were originally processed through Document Intelligence.
+Used during knowledge base preparation to preprocess documents (PDFs, images, handwritten text). Extracted clean text/structured data from these documents, which was then embedded and indexed in Cognitive Search. At runtime, the chatbot retrieves documents that were originally processed through Document Intelligence.
 
 5.Azure Cognitive Search (Vector Database)
-Stores embeddings generated from Document Intelligence–processed content.
-Provides fast similarity search against the knowledge base.
+Stores embeddings generated from Document Intelligence–processed content. Provides fast similarity search against the knowledge base.
 
 6.Azure OpenAI Service (GPT-4o)
-Handles query understanding and response generation.
-If no relevant documents are retrieved, it returns: “This information is not in my knowledge.”
+Handles query understanding and response generation. If no relevant documents are retrieved, it returns: “This information is not in my knowledge.”
 
 7.Azure Cosmos DB
 Maintains session state and logs conversation history for continuity.
@@ -217,40 +212,43 @@ Acts as middleware: receives user input (text or speech) from CLI, queries Cogni
 
 Also integrates with Speech services for STT and TTS when needed.
 
-## Data Flow
-Admin Workflow
+Retrieves service credentials securely from Azure Key Vault.
+
+9.Azure Key Vault 
+
+Stores sensitive information (OpenAI API key, Cognitive Search keys, Cosmos DB connection strings, and other secrets).
+
+Ensures secure access management.
+
+Function Apps (both Admin and User workflows) request secrets from Key Vault instead of storing them in config files.
+
+# Data Flow
+# Admin Workflow
 
 1.Admin Input: Admin uploads documents into the system.
 
-2.Function App → Document Intelligence: Function App sends documents to Document Intelligence. Document Intelligence extracts structured text from the uploaded files.
+2.Function App → Key Vault: Function App retrieves Document Intelligence and Cognitive Search credentials from Key Vault.
 
-3.Embeddings & Storage: Extracted text is converted into embeddings using Text-Embedding-3-Small. Embeddings are indexed in Azure Cognitive Search.
+3.Function App → Document Intelligence: Function App sends documents to Document Intelligence. Document Intelligence extracts structured text from the uploaded files.
 
-User Workflow
+4.Embeddings & Storage: Extracted text is converted into embeddings using Text-Embedding-3-Small. Embeddings are indexed in Azure Cognitive Search. Keys for embedding generation and Cognitive Search are securely retrieved from Key Vault.
 
-User Input:
+# User Workflow
+1.User Input:
 
-1.If text input → User types a question in the interface .
+If text input → User types a question in the interface.
 
-If voice input → Speech-to-Text (STT) converts spoken input into text.
-The Function App receives the processed query.
+If voice input → Speech-to-Text (STT) converts spoken input into text. The Function App receives the processed query.
 
-2.Session Check (Cosmos DB):
-Function App queries Cosmos DB to check for existing session history. Past interactions are retrieved to maintain continuity.
+2.Session Check (Cosmos DB): Function App retrieves Cosmos DB connection string from Key Vault and queries Cosmos DB to check for existing session history. Past interactions are retrieved to maintain continuity.
 
-3.Embedding Generation:
-Function App generates embeddings for the user’s query using OpenAI service (text-embedding-3-large).
+3.Embedding Generation: Function App retrieves the OpenAI API key from Key Vault, then generates embeddings for the user’s query using OpenAI service (text-embedding-3-large).
 
-4.Document Retrieval (Azure Cognitive Search):
-The query embeddings are used to search Azure Cognitive Search.
-Relevant document chunks (uploaded by Admin and processed via Document Intelligence) are returned.
-If no relevant results → Function App sets a fallback flag: “Not in knowledge base.”
+4.Document Retrieval (Azure Cognitive Search): Function App retrieves Cognitive Search API keys from Key Vault and The query embeddings are used to search Azure Cognitive Search. Relevant document chunks (uploaded by Admin and processed via Document Intelligence) are returned. If no relevant results → Function App sets a fallback flag: “Not in knowledge base.”
 
-5.Response Generation (GPT-4o):
-If relevant results exist → Function App sends user query + retrieved context to GPT-4o. GPT-4o generates a grounded, natural-language response.
+5.Response Generation (GPT-4o): If relevant results exist → Function App sends user query + retrieved context to GPT-4o. GPT-4o generates a grounded, natural-language response.
 
-6.Response Handling (Cosmos DB):
-Function App logs the response and updates conversation history in Cosmos DB.
+6.Response Handling (Cosmos DB): Function App logs the response and updates conversation history in Cosmos DB (using connection details pulled from Key Vault).
 
 7.Response Delivery:
 
