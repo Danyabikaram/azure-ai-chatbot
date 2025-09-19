@@ -6,7 +6,8 @@ The Azure AI Chatbot is a console-based application powered by the GPT-4o model 
 - Retrieval-Augmented Generation (RAG) using Azure Cognitive Search  
 - Document Intelligence integration for knowledge extraction  
 - Speech-to-text and text-to-speech for natural voice interaction  
-- Cosmos DB for storing user sessions and context  
+- Cosmos DB for storing user sessions and context
+- Azure Key Vault for secure management of API keys, secrets, and credentials
 - Error handling for reliable conversation flow  
 - Deployable as an Azure Function App
 
@@ -21,6 +22,7 @@ Before setting up the chatbot, ensure you have the following:
   - Azure Document Intelligence (for document preprocessing)  
   - Azure Cosmos DB (for storing session data)  
   - Azure Speech Service (to add speech to text and text to speech capabilities)
+  -Azure Key Vault (for secure storage and management of secrets, keys, and credentials)
 
 
 # Setup
@@ -40,43 +42,7 @@ Create a .env file:
 ## API configuration
 Add the following environment variables to your .env file:
 
-AZURE_OPENAI_API_KEY=<your_api_key_here>
-
-AZURE_OAI_ENDPOINT<=https://your-endpoint-here.openai.azure.com/>
-
-AZURE_CHAT_DEPLOYMENT="gpt-4o"
-
-AZURE_EMBED_ENDPOINT= <embedded_model_endpoit>
-
-AZURE_EMBED_KEY= <embedded_model_key>
-
-AZURE_EMBED_DEPLOYMENT="text-embedding-3-large"
-   
-COSMOS_URI = <Your_cosmosDB_URI>
-
-COSMOS_KEY = <Your_Cosmos_DB_Key>
-
-AZURE_SEARCH_ENDPOINT = <your_Azure_Search_Endpoint>
-
-AZURE_SEARCH_KEY = "<Your_Azure_Search_Key>"
-
-AZURE_SEARCH_INDEX = "<Your_Azure_Search_Index_Name>"
-
-AZURE_SEARCH_TEXT_FIELD = content
-
-AZURE_SEARCH_EMBED_FIELD = embedding
-
-AZURE_DI_ENDPOINT=< Document-Intelligence-endpoint>
-
-AZURE_DI_KEY = < Document-Intelligence-key>
-
-AZURE_BLOB_CONNECTION_STRING = <azure_blob_endpoint>
-
-BLOB_CONTAINER_NAME = <your_blob_container_name>
-
-AZURE_SPEECH_KEY = <azure_speech_key>
-
-AZURE_SPEECH_REGION = 'eastus'
+AZURE_KEY_VAULT_URL = <your-key-vault-url>
 
 
 
