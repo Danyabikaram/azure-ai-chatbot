@@ -61,7 +61,7 @@ def upload_to_blob_storage(json_data, filename):
     return blob_name
 
 def load_rag_documents(rag_folder="rag"):
-    documents = []
+
     for file in os.listdir(rag_folder):
         if file.endswith((".pdf", ".png", ".jpg", ".jpeg", ".tiff")):  # Support more formats
             file_path = os.path.join(rag_folder, file)
@@ -72,8 +72,6 @@ def load_rag_documents(rag_folder="rag"):
                 # Upload JSON to Blob Storage
                 upload_to_blob_storage(json_result, os.path.splitext(file)[0])
 
-                # Store for potential further processing
-                documents.append(json_result)
+
             except Exception as e:
                 print(f"Error processing {file}: {e}")
-    return documents

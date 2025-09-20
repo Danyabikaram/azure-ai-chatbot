@@ -122,3 +122,6 @@ search_index_client = SearchIndexClient(endpoint=AZURE_SEARCH_ENDPOINT, credenti
 AZURE_SPEECH_KEY = get_secret("AZURE_SPEECH_KEY")
 AZURE_SPEECH_REGION = get_secret("AZURE_SPEECH_REGION")
 speech_config = speechsdk.SpeechConfig(subscription=AZURE_SPEECH_KEY, region=AZURE_SPEECH_REGION)
+
+CONF_COSMOS_URI = get_secret("COSMOS_URI")
+CONF_COSMOS_KEY = get_secret("COSMOS_KEY")

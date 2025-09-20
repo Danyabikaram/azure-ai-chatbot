@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from config import (
-    di_client, blob_service_client, search_index_client, embedding_client,
-    AZURE_BLOB_CONTAINER_NAME, AZURE_EMBED_DEPLOYMENT, AZURE_SEARCH_ENDPOINT,
+    search_index_client, embedding_client,
+    AZURE_EMBED_DEPLOYMENT, AZURE_SEARCH_ENDPOINT,
     AZURE_SEARCH_KEY, AZURE_SEARCH_TEXT_FIELD, AZURE_SEARCH_EMBED_FIELD
 )
+from document_loader import process_document_with_di , upload_to_blob_storage 
 from azure.search.documents.indexes.models import (
     SearchIndex,
     SimpleField,
@@ -17,68 +18,9 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     VectorSearchProfile,
     HnswAlgorithmConfiguration,
-    AzureOpenAIVectorizer,
-    AzureOpenAIVectorizerParameters,
-    VectorSearchVectorizer
 )
 
-def process_document_with_di(file_path):
-    """Process a document with Azure Document Intelligence and return JSON result."""
-    with open(file_path, "rb") as f:
-        poller = di_client.begin_analyze_document(
-            "prebuilt-read",  # Use prebuilt-read for general document analysis
-            body=f,
-            content_type="application/octet-stream"
-        )
-    result = poller.result()
 
-    # Convert result to JSON
-    result_json = {
-        "filename": os.path.basename(file_path),
-        "content": result.content,
-        "pages": [
-            {
-                "page_number": page.page_number,
-                "width": page.width,
-                "height": page.height,
-                "unit": page.unit,
-                "lines": [
-                    {
-                        "content": line.content
-                    } for line in page.lines
-                ]
-            } for page in result.pages
-        ],
-        "tables": [
-            {
-                "row_count": table.row_count,
-                "column_count": table.column_count,
-                "cells": [
-                    {
-                        "row_index": cell.row_index,
-                        "column_index": cell.column_index,
-                        "content": cell.content
-                    } for cell in table.cells
-                ]
-            } for table in result.tables
-        ] if result.tables else []
-    }
-
-    return result_json
-
-def upload_to_blob_storage(json_data, filename):
-    """Upload JSON data to Azure Blob Storage."""
-    blob_name = f"{filename}.json"
-    blob_client = blob_service_client.get_blob_client(
-        container=AZURE_BLOB_CONTAINER_NAME,
-        blob=blob_name
-    )
-
-    json_string = json.dumps(json_data, indent=2, ensure_ascii=False)
-    blob_client.upload_blob(json_string, overwrite=True)
-
-    print(f"Uploaded {blob_name} to blob storage")
-    return blob_name
 
 def generate_embedding(text):
     """Generate embedding for text using Azure OpenAI."""

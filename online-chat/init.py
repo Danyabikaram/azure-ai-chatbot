@@ -5,6 +5,7 @@ import os
 import uuid
 import azure.functions as func
 import logging
+from config import CONF_COSMOS_URI , CONF_COSMOS_KEY
 from chat_logic import SUMMARIZE_AFTER, trim_history, summarize_conversation, generate_rag_response
 from embedding_search import retrieve_relevant_docs
 
@@ -12,54 +13,43 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load Cosmos DB config from environment variables
-COSMOS_URI = os.getenv("COSMOS_URI")
-COSMOS_KEY = os.getenv("COSMOS_KEY")
+COSMOS_URI = CONF_COSMOS_URI
+COSMOS_KEY = CONF_COSMOS_KEY
 DATABASE_NAME = "ChatbotDB"
 CONTAINER_NAME = "Sessions"
 
 # In-memory storage for sessions if Cosmos DB is not configured
 sessions = {}
 
-if COSMOS_URI and COSMOS_KEY:
-    from azure.cosmos import CosmosClient, PartitionKey
-    # Initialize Cosmos DB client and container
-    cosmos_client = CosmosClient(COSMOS_URI, COSMOS_KEY)
-    database = cosmos_client.create_database_if_not_exists(DATABASE_NAME)
-    container = database.create_container_if_not_exists(
-        id=CONTAINER_NAME,
-        partition_key=PartitionKey(path="/sessionId")
-    )
 
-    def save_message(session_id, role, content):
-        container.create_item({
-            "id": str(uuid.uuid4()),
-            "sessionId": session_id,
-            "role": role,
-            "content": content
-        })
+from azure.cosmos import CosmosClient, PartitionKey
+# Initialize Cosmos DB client and container
+cosmos_client = CosmosClient(COSMOS_URI, COSMOS_KEY)
+database = cosmos_client.create_database_if_not_exists(DATABASE_NAME)
+container = database.create_container_if_not_exists(
+    id=CONTAINER_NAME,
+    partition_key=PartitionKey(path="/sessionId")
+)
 
-    def load_messages(session_id):
-        query = f"SELECT c.role, c.content FROM c WHERE c.sessionId = '{session_id}' ORDER BY c._ts ASC"
-        items = list(container.query_items(query, enable_cross_partition_query=True))
-        return [{"role": i["role"], "content": i["content"]} for i in items]
+def save_message(session_id, role, content):
+    container.create_item({
+        "id": str(uuid.uuid4()),
+        "sessionId": session_id,
+        "role": role,
+        "content": content
+    })
 
-    def clear_conversation(session_id):
-        query = f"SELECT c.id, c.sessionId FROM c WHERE c.sessionId = '{session_id}'"
-        items = list(container.query_items(query, enable_cross_partition_query=True))
-        for item in items:
-            container.delete_item(item["id"], partition_key=item["sessionId"])
-else:
-    def save_message(session_id, role, content):
-        if session_id not in sessions:
-            sessions[session_id] = []
-        sessions[session_id].append({"role": role, "content": content})
+def load_messages(session_id):
+    query = f"SELECT c.role, c.content FROM c WHERE c.sessionId = '{session_id}' ORDER BY c._ts ASC"
+    items = list(container.query_items(query, enable_cross_partition_query=True))
+    return [{"role": i["role"], "content": i["content"]} for i in items]
 
-    def load_messages(session_id):
-        return sessions.get(session_id, [])
+def clear_conversation(session_id):
+    query = f"SELECT c.id, c.sessionId FROM c WHERE c.sessionId = '{session_id}'"
+    items = list(container.query_items(query, enable_cross_partition_query=True))
+    for item in items:
+       container.delete_item(item["id"], partition_key=item["sessionId"])
 
-    def clear_conversation(session_id):
-        if session_id in sessions:
-            sessions[session_id] = []
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
