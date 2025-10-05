@@ -1,11 +1,11 @@
 import sys
-sys.path.append('..')
-import json
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import json
 import uuid
 import azure.functions as func
 import logging
-from config import CONF_COSMOS_URI , CONF_COSMOS_KEY
+from config import COSMOS_URI , COSMOS_KEY
 from chat_logic import SUMMARIZE_AFTER, trim_history, summarize_conversation, generate_rag_response
 from embedding_search import retrieve_relevant_docs
 
@@ -13,8 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load Cosmos DB config from environment variables
-COSMOS_URI = CONF_COSMOS_URI
-COSMOS_KEY = CONF_COSMOS_KEY
+COSMOS_URI = COSMOS_URI
+COSMOS_KEY = COSMOS_KEY
 DATABASE_NAME = "ChatbotDB"
 CONTAINER_NAME = "Sessions"
 
@@ -95,53 +95,93 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                         'Access-Control-Allow-Headers': 'Content-Type'
                     })
                 if cmd == "clear":
-                    clear_conversation(session_id)
-                    return func.HttpResponse(json.dumps({"response": "Conversation cleared"}), mimetype="application/json", headers={
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type'
-                    })
+                    try:
+                        clear_conversation(session_id)
+                        return func.HttpResponse(json.dumps({"response": "Conversation cleared"}), mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                    except Exception as e:
+                        logger.error(f"Error clearing conversation: {e}")
+                        return func.HttpResponse(json.dumps({"error": "Failed to clear conversation"}), status_code=500, mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
                 if cmd == "restart":
-                    clear_conversation(session_id)
-                    return func.HttpResponse(json.dumps({"response": "Session restarted"}), mimetype="application/json", headers={
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type'
-                    })
+                    try:
+                        clear_conversation(session_id)
+                        return func.HttpResponse(json.dumps({"response": "Session restarted"}), mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                    except Exception as e:
+                        logger.error(f"Error restarting session: {e}")
+                        return func.HttpResponse(json.dumps({"error": "Failed to restart session"}), status_code=500, mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
                 if cmd == "show history":
-                    history = load_messages(session_id)
-                    if not history:
-                        resp = "No messages found"
-                    else:
-                        resp = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history])
-                    return func.HttpResponse(json.dumps({"response": resp}), mimetype="application/json", headers={
+                    try:
+                        history = load_messages(session_id)
+                        if not history:
+                            resp = "No messages found"
+                        else:
+                            resp = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history])
+                        return func.HttpResponse(json.dumps({"response": resp}), mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                    except Exception as e:
+                        logger.error(f"Error loading history: {e}")
+                        return func.HttpResponse(json.dumps({"error": "Failed to load history"}), status_code=500, mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+
+                try:
+                    save_message(session_id, "user", user_input)
+                except Exception as e:
+                    logger.error(f"Error saving user message: {e}")
+                    return func.HttpResponse(json.dumps({"error": "Failed to save message"}), status_code=500, mimetype="application/json", headers={
                         'Access-Control-Allow-Origin': '*',
                         'Access-Control-Allow-Methods': 'POST, OPTIONS',
                         'Access-Control-Allow-Headers': 'Content-Type'
                     })
 
-                save_message(session_id, "user", user_input)
+                try:
+                    history = load_messages(session_id)
+                    if len(history) > SUMMARIZE_AFTER:
+                        summary_text = summarize_conversation(history[:-10])
+                        history = [{"role": "system", "content": f"Summary of earlier conversation: {summary_text}"}] + history[-10:]
 
-                history = load_messages(session_id)
-                if len(history) > SUMMARIZE_AFTER:
-                    summary_text = summarize_conversation(history[:-10])
-                    history = [{"role": "system", "content": f"Summary of earlier conversation: {summary_text}"}] + history[-10:]
+                    history = trim_history(history)
 
-                history = trim_history(history)
+                    relevant_docs = retrieve_relevant_docs(user_input, top_k=3)
 
-                relevant_docs = retrieve_relevant_docs(user_input, top_k=3)
+                    response = generate_rag_response(user_input, history, relevant_docs)
 
-                response = generate_rag_response(user_input, history, relevant_docs)
+                    save_message(session_id, "assistant", response)
 
-                save_message(session_id, "assistant", response)
+                    logger.info(f"Response generated: {response}")
 
-                logger.info(f"Response generated: {response}")
-
-                return func.HttpResponse(json.dumps({"response": response}), mimetype="application/json", headers={
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
-                })
+                    return func.HttpResponse(json.dumps({"response": response}), mimetype="application/json", headers={
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    })
+                except Exception as e:
+                    logger.error(f"Error generating response: {e}")
+                    return func.HttpResponse(json.dumps({"error": "Failed to generate response"}), status_code=500, mimetype="application/json", headers={
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    })
 
         elif path == 'session-id':
             if req.method == 'GET':

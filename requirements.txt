@@ -13,3 +13,9 @@ azure-cognitiveservices-speech
 azure-search-documents[vector-search]>=11.4.0
 azure-identity
 azure-keyvault-secrets
+azure-mgmt-cognitiveservices
+azure-mgmt-search
+azure-mgmt-storage
+azure-mgmt-cosmosdb
+azure-mgmt-resource
+azure-core

@@ -1,5 +1,5 @@
-from config import embedding_client, search_client, AZURE_EMBED_DEPLOYMENT, AZURE_SEARCH_TEXT_FIELD, AZURE_SEARCH_EMBED_FIELD
-from azure.search.documents.models import VectorizedQuery
+from config import embedding_client, search_client
+from azure.search.documents.models import VectorizedQuery 
 import numpy as np
 import time
 from openai import RateLimitError
@@ -19,7 +19,7 @@ def retrieve_relevant_docs(query, top_k=5):
             try:
                 response = embedding_client.embeddings.create(
                     input=[query],
-                    model=AZURE_EMBED_DEPLOYMENT
+                    model='text-embedding-3-large'
                 )
                 query_embedding = np.array(response.data[0].embedding)
                 # Cache the embedding for future use
@@ -35,15 +35,15 @@ def retrieve_relevant_docs(query, top_k=5):
                     raise
 
     # Search in Azure AI Search
-    vector_query = VectorizedQuery(vector=query_embedding, k_nearest_neighbors=top_k, fields=AZURE_SEARCH_EMBED_FIELD)
+    vector_query = VectorizedQuery(vector=query_embedding, k_nearest_neighbors=top_k, fields='embedding')
     results = search_client.search(
         search_text="",
         vector_queries=[vector_query],
-        select=[AZURE_SEARCH_TEXT_FIELD]
+        select=['content']
     )
 
     docs = []
     for result in results:
-        docs.append(result[AZURE_SEARCH_TEXT_FIELD])
+        docs.append(result['content'])
 
     return docs

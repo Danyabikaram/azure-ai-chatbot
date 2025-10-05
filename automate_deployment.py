@@ -5,8 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from config import (
     search_index_client, embedding_client,
-    AZURE_EMBED_DEPLOYMENT, AZURE_SEARCH_ENDPOINT,
-    AZURE_SEARCH_KEY, AZURE_SEARCH_TEXT_FIELD, AZURE_SEARCH_EMBED_FIELD
+    SEARCH_ENDPOINT,
+    SEARCH_KEY
 )
 from document_loader import process_document_with_di , upload_to_blob_storage 
 from azure.search.documents.indexes.models import (
@@ -25,7 +25,7 @@ from azure.search.documents.indexes.models import (
 def generate_embedding(text):
     """Generate embedding for text using Azure OpenAI."""
     response = embedding_client.embeddings.create(
-        model=AZURE_EMBED_DEPLOYMENT,
+        model='text-embedding-3-large',
         input=text[:8000]  # Limit text length for embedding
     )
     return response.data[0].embedding
@@ -34,9 +34,9 @@ def create_search_index(index_name):
     """Create Azure AI Search index with vector search capabilities."""
     fields = [
         SimpleField(name="id", type=SearchFieldDataType.String, key=True),
-        SearchableField(name=AZURE_SEARCH_TEXT_FIELD, type=SearchFieldDataType.String),
+        SearchableField(name='content', type=SearchFieldDataType.String),
         SearchField(
-            name=AZURE_SEARCH_EMBED_FIELD,
+            name='embedding',
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
             vector_search_dimensions=3072,  # Dimension for text-embedding-3-large
             vector_search_profile_name="my-vector-profile"
@@ -72,9 +72,9 @@ def upload_documents_to_search(documents, index_name):
     import numpy as np
 
     search_client = SearchClient(
-        endpoint=AZURE_SEARCH_ENDPOINT,
+        endpoint=SEARCH_ENDPOINT,
         index_name=index_name,
-        credential=AzureKeyCredential(AZURE_SEARCH_KEY)
+        credential=AzureKeyCredential(SEARCH_KEY)
     )
 
     # Prepare documents for upload
@@ -88,8 +88,8 @@ def upload_documents_to_search(documents, index_name):
                 embedding = embedding.tolist()
             search_doc = {
                 "id": str(uuid.uuid4()),
-                AZURE_SEARCH_TEXT_FIELD: content,
-                AZURE_SEARCH_EMBED_FIELD: embedding
+                'content': content,
+                'embedding': embedding
             }
             search_documents.append(search_doc)
 
@@ -102,30 +102,7 @@ def upload_documents_to_search(documents, index_name):
 
     print(f"Uploaded {len(search_documents)} documents to search index")
 
-def update_env_file(index_name):
-    """Update .env file with the new index name."""
-    env_file = ".env"
-    env_lines = []
 
-    if os.path.exists(env_file):
-        with open(env_file, "r") as f:
-            env_lines = f.readlines()
-
-    # Update or add AZURE_SEARCH_INDEX
-    index_updated = False
-    for i, line in enumerate(env_lines):
-        if line.startswith("AZURE_SEARCH_INDEX="):
-            env_lines[i] = f"AZURE_SEARCH_INDEX={index_name}\n"
-            index_updated = True
-            break
-
-    if not index_updated:
-        env_lines.append(f"AZURE_SEARCH_INDEX={index_name}\n")
-
-    with open(env_file, "w") as f:
-        f.writelines(env_lines)
-
-    print(f"Updated .env file with AZURE_SEARCH_INDEX={index_name}")
 
 def main():
     """Main automation function."""
@@ -166,8 +143,7 @@ def main():
         return
 
     # Create new search index
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    index_name = f"chatbot-docs-{timestamp}"
+    index_name = "chatbot-docs-20250913_145142"
 
     try:
         create_search_index(index_name)
@@ -182,8 +158,6 @@ def main():
         print(f"Error uploading documents to search: {e}")
         return
 
-    # Update environment variables
-    update_env_file(index_name)
 
     print("Automation completed successfully!")
     print(f"New search index: {index_name}")

@@ -1,7 +1,6 @@
 import os
 import json
-from config import di_client, blob_service_client, AZURE_BLOB_CONTAINER_NAME
-
+from config import di_client, blob_service_client
 def process_document_with_di(file_path):
     """Process a document with Azure Document Intelligence and return JSON result."""
     with open(file_path, "rb") as f:
@@ -50,7 +49,7 @@ def upload_to_blob_storage(json_data, filename):
     """Upload JSON data to Azure Blob Storage."""
     blob_name = f"{filename}.json"
     blob_client = blob_service_client.get_blob_client(
-        container=AZURE_BLOB_CONTAINER_NAME,
+        container='aidocs',
         blob=blob_name
     )
 

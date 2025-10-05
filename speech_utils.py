@@ -48,7 +48,7 @@ def recognize_speech(speech_config):
                         time.sleep(wait_time)
                         continue
             return None
-
+#text to speech
 def synthesize_speech(speech_config, text):
     audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
     synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)

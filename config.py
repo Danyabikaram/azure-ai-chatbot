@@ -1,127 +1,87 @@
-import os
-from dotenv import load_dotenv
-from openai import AzureOpenAI
-
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.ai.documentintelligence import DocumentIntelligenceClient
-from azure.storage.blob import BlobServiceClient
 from azure.core.credentials import AzureKeyCredential
+from azure.storage.blob import BlobServiceClient
 import azure.cognitiveservices.speech as speechsdk
-
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
-
-# Load environment variables
+from openai import AzureOpenAI
+from dotenv import load_dotenv
+import os
 load_dotenv()
 
-# Azure Key Vault configuration
-KEY_VAULT_URL = os.getenv("AZURE_KEY_VAULT_URL")
-print("Key Vault URL:", KEY_VAULT_URL)
-if not KEY_VAULT_URL:
-    print("Error: AZURE_KEY_VAULT_URL not found in environment variables.")
-    exit(1)
+# -----------------------------
+# Config
+# -----------------------------
+keyvault_url = os.getenv('keyvault_url')
+
+# Authenticate
 credential = DefaultAzureCredential()
-secret_client = SecretClient(vault_url=KEY_VAULT_URL, credential=credential)
+secret_client = SecretClient(vault_url=keyvault_url, credential=credential)
 
-def get_secret(secret_name: str) -> str:
+# -----------------------------
+# Helper functions
+# -----------------------------
+def get_secret(name: str) -> str:
+    """Retrieve secret from Key Vault."""
     try:
-        secret = secret_client.get_secret(secret_name.replace('_', '-'))
-        return secret.value
+        return secret_client.get_secret(name).value
     except Exception as e:
-        print(f"Error fetching secret {secret_name} from Key Vault: {e}")
-        exit(1)
+        print(f"❌ Failed to retrieve secret {name}: {e}")
+        raise
 
-def get_optional_secret(secret_name: str, default: str) -> str:
+def get_region_from_endpoint(endpoint: str) -> str:
+    """Extract region from endpoint like https://<name>.<region>.cognitiveservices.azure.com/"""
     try:
-        secret = secret_client.get_secret(secret_name.replace('_', '-'))
-        return secret.value
-    except Exception as e:
-        print(f"Optional secret {secret_name} not found, using default: {default}")
-        return default
+        return endpoint.split(".")[1]
+    except Exception:
+        return "eastus2"
 
-# Save environment credentials to Key Vault, excluding AZURE_KEY_VAULT_URL
-for key, value in os.environ.items():
-    if key != "AZURE_KEY_VAULT_URL" and ("KEY" in key or "SECRET" in key or "CONNECTION_STRING" in key or "URI" in key or "API_KEY" in key):
-        secret_name = key.replace('_', '-')
-        try:
-            # Check if secret already exists
-            secret_client.get_secret(secret_name)
-            print(f"Secret {key} already exists in Key Vault")
-        except Exception:
-            # If not exists, save it
-            try:
-                secret_client.set_secret(secret_name, value)
-                print(f"Saved secret {key} to Key Vault")
-            except Exception as e:
-                print(f"Failed to save secret {key} to Key Vault: {e}")
+# -----------------------------
+# Initialize Azure Clients using Key Vault secrets
+# -----------------------------
 
-# Azure OpenAI configuration
-AZURE_OAI_ENDPOINT = get_secret("AZURE_OAI_ENDPOINT")
-AZURE_OAI_KEY = get_secret("AZURE_OPENAI_API_KEY")
-AZURE_OAI_DEPLOYMENT = get_secret("AZURE_CHAT_DEPLOYMENT")  # e.g., gpt-4o
-
-# Embedding configuration
-AZURE_EMBED_ENDPOINT = get_secret("AZURE_EMBED_ENDPOINT")
-AZURE_EMBED_KEY = get_secret("AZURE_EMBED_KEY")
-AZURE_EMBED_DEPLOYMENT = get_secret("AZURE_EMBED_DEPLOYMENT")  # e.g., text-embedding-3-large
-
-# Azure AI Search configuration (for embedded docs)
-AZURE_SEARCH_ENDPOINT = get_secret("AZURE_SEARCH_ENDPOINT")
-AZURE_SEARCH_KEY = get_secret("AZURE_SEARCH_KEY")
-
-# Fetch Azure Search index name from Key Vault
-AZURE_SEARCH_INDEX = get_secret("AZURE_SEARCH_INDEX")
-
-def update_search_index():
-    global AZURE_SEARCH_INDEX
-    new_index = get_secret("AZURE_SEARCH_INDEX")
-    if new_index != AZURE_SEARCH_INDEX:
-        AZURE_SEARCH_INDEX = new_index
-        # Reinitialize search_client with new index
-        global search_client
-        search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=AZURE_SEARCH_INDEX, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
-        print(f"Azure Search index updated to: {AZURE_SEARCH_INDEX}")
-AZURE_SEARCH_TEXT_FIELD = get_optional_secret("AZURE_SEARCH_TEXT_FIELD", "content")  # Use your actual text field name
-AZURE_SEARCH_EMBED_FIELD = get_optional_secret("AZURE_SEARCH_EMBED_FIELD", "embedding")  # Use your actual vector field name
-
-# Initialize Azure clients
 try:
-    chat_client = AzureOpenAI(
-        base_url=AZURE_OAI_ENDPOINT,
-        api_key=AZURE_OAI_KEY,
-        api_version="2024-12-01-preview"
-    )
+    # OpenAI Chat + Embeddings
+    OAI_ENDPOINT = get_secret("oai-internship-eus2-endpoint")
+    CHAT_OAI_CLIENT = get_secret("gpt-4o-deployment-endpoint") + "/chat/completions?api-version=2025-01-01-preview"
+    EMBEDDED_OAI_CLIENT = get_secret("text-embedding-3-large-deployment-endpoint") + "/embeddings?api-version=2023-05-15"
+    print("CHAT_OAI_CLIENT : " , CHAT_OAI_CLIENT)
+    print("EMBEDDED_OAI_CLIENT : " , EMBEDDED_OAI_CLIENT)
+    OAI_KEY = get_secret("oai-internship-eus2-key1")
 
-    embedding_client = AzureOpenAI(
-        base_url=AZURE_EMBED_ENDPOINT,
-        api_key=AZURE_EMBED_KEY,
-        api_version="2023-05-15"
-    )
+    chat_client = AzureOpenAI(base_url=CHAT_OAI_CLIENT, api_key=OAI_KEY, api_version="2024-12-01-preview")
+    embedding_client = AzureOpenAI(base_url=EMBEDDED_OAI_CLIENT , api_key=OAI_KEY, api_version="2023-05-15")
+
+    # Document Intelligence
+    DI_ENDPOINT = get_secret("text-embedding-3-large-deployment-endpoint")
+    DI_KEY = get_secret("di-internship-eus2-key1")
+    di_client = DocumentIntelligenceClient(endpoint=DI_ENDPOINT, credential=AzureKeyCredential(DI_KEY))
+
+    # Blob Storage
+    BLOB_CONN = get_secret("sainternshipeus-connection-string")
+    blob_service_client = BlobServiceClient.from_connection_string(BLOB_CONN)
+
+    # Speech
+    SPEECH_ENDPOINT = get_secret("sps-internship-eus2-endpoint")
+    SPEECH_KEY = get_secret("sps-internship-eus2-key1")
+    SPEECH_REGION = get_region_from_endpoint(SPEECH_ENDPOINT)
+    speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
+
+    # Search
+    SEARCH_ENDPOINT = get_secret("ss-internship-eus2-endpoint")
+    SEARCH_KEY = get_secret("ss-internship-eus2-key1")
+    SEARCH_INDEX = "chatbot-docs-20250913_145142"
+    search_client = SearchClient(endpoint=SEARCH_ENDPOINT, index_name=SEARCH_INDEX, credential=AzureKeyCredential(SEARCH_KEY))
+    search_index_client = SearchIndexClient(endpoint=SEARCH_ENDPOINT, credential=AzureKeyCredential(SEARCH_KEY))
+
+    # Cosmos DB
+    COSMOS_URI = get_secret("cosmosdb-internship-wus2-uri")
+    COSMOS_KEY = get_secret("cosmosdb-internship-wus2-primary-key")
+
+    print("✔ All Azure clients initialized successfully using Key Vault secrets")
+
 except Exception as e:
-    print("Error initializing Azure OpenAI clients:", e)
-    exit(1)
-
-# Azure AI Search client
-search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=AZURE_SEARCH_INDEX, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
-
-# Azure Document Intelligence
-AZURE_DI_ENDPOINT = get_secret("AZURE_DI_ENDPOINT")
-AZURE_DI_KEY = get_secret("AZURE_DI_KEY")
-di_client = DocumentIntelligenceClient(endpoint=AZURE_DI_ENDPOINT, credential=AzureKeyCredential(AZURE_DI_KEY))
-
-# Azure Blob Storage
-AZURE_BLOB_CONNECTION_STRING = get_secret("AZURE_BLOB_CONNECTION_STRING")
-AZURE_BLOB_CONTAINER_NAME = get_optional_secret("AZURE_BLOB_CONTAINER_NAME", "documents")
-blob_service_client = BlobServiceClient.from_connection_string(AZURE_BLOB_CONNECTION_STRING)
-
-# Azure Search Index Client
-search_index_client = SearchIndexClient(endpoint=AZURE_SEARCH_ENDPOINT, credential=AzureKeyCredential(AZURE_SEARCH_KEY))
-
-# Azure Speech configuration
-AZURE_SPEECH_KEY = get_secret("AZURE_SPEECH_KEY")
-AZURE_SPEECH_REGION = get_secret("AZURE_SPEECH_REGION")
-speech_config = speechsdk.SpeechConfig(subscription=AZURE_SPEECH_KEY, region=AZURE_SPEECH_REGION)
-
-CONF_COSMOS_URI = get_secret("COSMOS_URI")
-CONF_COSMOS_KEY = get_secret("COSMOS_KEY")
+    print(f"❌ Failed to initialize clients: {e}")
+    raise

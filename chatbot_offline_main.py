@@ -3,12 +3,12 @@ from chat_logic import SUMMARIZE_AFTER, trim_history, summarize_conversation, ge
 from speech_utils import recognize_speech, synthesize_speech
 from config import speech_config
 from embedding_search import retrieve_relevant_docs, embedding_cache
-from config import CONF_COSMOS_KEY , CONF_COSMOS_URI
+from config import COSMOS_KEY , COSMOS_URI
 import uuid
 
 # Load Cosmos DB config from environment variables
-COSMOS_URI = CONF_COSMOS_URI
-COSMOS_KEY = CONF_COSMOS_KEY
+COSMOS_URI = COSMOS_URI
+COSMOS_KEY = COSMOS_KEY
 DATABASE_NAME = "ChatbotDB"
 CONTAINER_NAME = "Sessions"
 
@@ -118,7 +118,9 @@ while True:
 
     try:
         # Retrieve relevant docs (top_k reduced to 3)
+       
         relevant_docs = retrieve_relevant_docs(user_input, top_k=3)
+     
         print(f"Embedding retrieval successful. Found {len(relevant_docs)} documents.")
 
         # Generate RAG response using the retrieved docs
