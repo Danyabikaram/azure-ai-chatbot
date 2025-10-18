@@ -19,3 +19,4 @@ azure-mgmt-storage
 azure-mgmt-cosmosdb
 azure-mgmt-resource
 azure-core
+beautifulsoup4

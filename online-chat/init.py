@@ -65,13 +65,62 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if path == 'online-chat':
             if req.method == 'GET':
-                session_id = str(uuid.uuid4())
-                logger.info(f"Generated session_id: {session_id}")
-                return func.HttpResponse(json.dumps({"session_id": session_id}), mimetype="application/json", headers={
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
-                })
+                action = req.params.get('action')
+                if action == 'sessions':
+                    try:
+                        query = "SELECT DISTINCT c.sessionId FROM c"
+                        items = list(container.query_items(query, enable_cross_partition_query=True, max_item_count=1000))
+                        sessions = []
+                        for item in items:
+                            session_id = item['sessionId']
+                            # Get first message as title
+                            first_msg_query = f"SELECT TOP 1 c.content FROM c WHERE c.sessionId = '{session_id}' AND c.role = 'user' ORDER BY c._ts ASC"
+                            first_msgs = list(container.query_items(first_msg_query, enable_cross_partition_query=True))
+                            title = first_msgs[0]['content'][:20] + '...' if first_msgs else 'Untitled'
+                            sessions.append({"id": session_id, "title": title})
+                        return func.HttpResponse(json.dumps({"sessions": sessions}), mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                    except Exception as e:
+                        logger.error(f"Error fetching sessions: {e}")
+                        return func.HttpResponse(json.dumps({"error": "Failed to fetch sessions"}), status_code=500, mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                elif action == 'history':
+                    session_id = req.params.get('session_id')
+                    if not session_id:
+                        return func.HttpResponse(json.dumps({"error": "Missing session_id"}), status_code=400, mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                    try:
+                        history = load_messages(session_id)
+                        history_formatted = [{"text": msg["content"], "isUser": msg["role"] == "user"} for msg in history]
+                        return func.HttpResponse(json.dumps({"history": history_formatted}), mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                    except Exception as e:
+                        logger.error(f"Error fetching history: {e}")
+                        return func.HttpResponse(json.dumps({"error": "Failed to fetch history"}), status_code=500, mimetype="application/json", headers={
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type'
+                        })
+                else:
+                    session_id = str(uuid.uuid4())
+                    logger.info(f"Generated session_id: {session_id}")
+                    return func.HttpResponse(json.dumps({"session_id": session_id}), mimetype="application/json", headers={
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    })
             elif req.method == 'POST':
                 req_body = req.get_json()
                 logger.info(f"Request body: {req_body}")

@@ -21,7 +21,7 @@ from azure.search.documents.indexes.models import (
 )
 
 
-
+##embeddings for the doc
 def generate_embedding(text):
     """Generate embedding for text using Azure OpenAI."""
     response = embedding_client.embeddings.create(

@@ -20,15 +20,13 @@ keyvault_url = os.getenv('keyvault_url')
 credential = DefaultAzureCredential()
 secret_client = SecretClient(vault_url=keyvault_url, credential=credential)
 
-# -----------------------------
-# Helper functions
-# -----------------------------
+
 def get_secret(name: str) -> str:
     """Retrieve secret from Key Vault."""
     try:
         return secret_client.get_secret(name).value
     except Exception as e:
-        print(f"❌ Failed to retrieve secret {name}: {e}")
+        print(f" Failed to retrieve secret {name}: {e}")
         raise
 
 def get_region_from_endpoint(endpoint: str) -> str:
@@ -80,8 +78,12 @@ try:
     COSMOS_URI = get_secret("cosmosdb-internship-wus2-uri")
     COSMOS_KEY = get_secret("cosmosdb-internship-wus2-primary-key")
 
+    # Realtime API
+    REALTIME_ENDPOINT = get_secret("gpt-realtime-endpoint")
+    REALTIME_KEY = get_secret("oai-internship-eus2-key1")
+
     print("✔ All Azure clients initialized successfully using Key Vault secrets")
 
 except Exception as e:
-    print(f"❌ Failed to initialize clients: {e}")
+    print(f" Failed to initialize clients: {e}")
     raise
