@@ -1,15 +1,24 @@
 # Azure AI Chatbot
-The Azure AI Chatbot is a console-based application powered by the GPT-4o model on Azure OpenAI. It integrates Retrieval-Augmented Generation (RAG) with Azure Cognitive Search and Document Intelligence to provide context-aware responses from uploaded documents. The bot also includes speech-to-text and text-to-speech capabilities, enabling natural voice interaction. It greets the user, processes input, generates accurate responses enriched with retrieved knowledge, and offers follow-up assistance, demonstrating real-time AI interaction with robust error handling.
+The Azure AI Chatbot is a console-based application powered by the GPT-4o model on Azure OpenAI. It combines Retrieval-Augmented Generation (RAG) with Azure Cognitive Search and Document Intelligence to provide context-aware answers from uploaded documents. The bot supports speech-to-text, text-to-speech, and even speech-to-speech interactions, enabling a natural conversational experience. Additionally, it supports function calling to fetch courses and other external data dynamically. The bot greets the user, processes input, retrieves knowledge-enriched responses, and provides follow-up assistance, all with robust error handling and real-time AI interaction.
 
 ## Features
-- Powered by GPT-4o with Azure OpenAI  
-- Retrieval-Augmented Generation (RAG) using Azure Cognitive Search  
-- Document Intelligence integration for knowledge extraction  
-- Speech-to-text and text-to-speech for natural voice interaction  
-- Cosmos DB for storing user sessions and context
-- Azure Key Vault for secure management of API keys, secrets, and credentials
-- Error handling for reliable conversation flow  
-- Deployable as an Azure Function App
+Powered by GPT-4o on Azure OpenAI
+
+Retrieval-Augmented Generation (RAG) using Azure Cognitive Search
+
+Integration with Document Intelligence for knowledge extraction
+
+Speech-to-text, text-to-speech, and speech-to-speech for natural voice interaction
+
+Function calling to retrieve information from external sources
+
+Cosmos DB for storing user sessions and context
+
+Azure Key Vault for secure management of API keys and credentials
+
+Robust error handling to ensure reliable conversations
+
+Deployable as an Azure Function App
 
 ## Prerequisites
 
@@ -60,7 +69,7 @@ Would you like me to dive into the types of AI?
 To deploy the code into a function app in azure, follow the steps mentioned in the file "Steps to deploy python azure function app for chatbot" in the terminalof the __init_ file.
 
 ## Architecture
-The chatbot uses Azure Functions to handle user input, calls Azure OpenAI for response generation, integrates with Cognitive Search and Document Intelligence for RAG-based context, uses Cosmos DB for session history andleverages Azure Speech Service for speech-to-text and text-to-speech capabilities.
+The chatbot uses Azure Functions to handle user input, calls Azure OpenAI for response generation, integrates with Cognitive Search and Document Intelligence for RAG-based context, uses Cosmos DB for session history and leverages Azure Speech Service for speech-to-text , text-to-speech capabilities and speech-to-speech interactions.
 
 
                       
