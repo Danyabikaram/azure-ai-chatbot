@@ -319,30 +319,39 @@ function generateUUID() {
 
 // Speech recognition
 let recognition;
+let isListening = false;
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
 
     voiceBtn.addEventListener('click', () => {
-        recognition.start();
-        voiceBtn.textContent = '🎙️';
+        if (isListening) {
+            recognition.stop();
+            isListening = false;
+            voiceBtn.textContent = '🎤';
+        } else {
+            recognition.start();
+            isListening = true;
+            voiceBtn.textContent = '🎙️';
+        }
     });
 
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
+        const transcript = event.results[event.results.length - 1][0].transcript;
         userInput.value = transcript;
-        voiceBtn.textContent = '🎤';
         chatForm.dispatchEvent(new Event('submit'));
     };
 
     recognition.onerror = () => {
+        isListening = false;
         voiceBtn.textContent = '🎤';
         addMessage('Speech recognition error', false);
     };
 
     recognition.onend = () => {
+        isListening = false;
         voiceBtn.textContent = '🎤';
     };
 } else {
@@ -370,17 +379,6 @@ function addTypingEffect(text) {
         chatContainer.scrollTop = chatContainer.scrollHeight;
         if (index < text.length) {
             setTimeout(typeChar, 20);
-        } else {
-            const speakBtn = document.createElement('button');
-            speakBtn.classList.add('speak-btn');
-            speakBtn.textContent = '🔊';
-            speakBtn.onclick = () => {
-                if ('speechSynthesis' in window) {
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    speechSynthesis.speak(utterance);
-                }
-            };
-            messageDiv.appendChild(speakBtn);
         }
     }
     typeChar();
@@ -448,6 +446,10 @@ realtimeBtn.addEventListener('click', () => {
     realtimeControls.style.display = 'block';
 });
 
+///////////////////////////
+/////real time gpt////////
+/////////////////////////
+
 let realtimeSocket = null;
 let mediaRecorder = null;
 let audioContext = null;
@@ -469,7 +471,7 @@ async function fetchRAG(question) {
         if (response.ok) {
             const data = await response.json();
             console.log('RAG fetch data:', data);
-            return data.response || 'No additional information available.';
+            return data.response || 'The topic you re asking about doesnt match the topics found in the current documents, so I cant recommend courses on that.';
         } else {
             console.log('RAG fetch failed with status:', response.status);
             return 'No additional information available.';
@@ -480,93 +482,124 @@ async function fetchRAG(question) {
     }
 }
 
+// Start real-time chat
 startRealtimeBtn.addEventListener('click', async () => {
     startRealtimeBtn.disabled = true;
     stopRealtimeBtn.disabled = false;
     addMessage('Real-time chat started. Speak now!', false);
 
     try {
-        // Get microphone access
-        if(!isAssistantSpeaking){
-        
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioContext = new AudioContext({ sampleRate: 24000 });
-        await audioContext.resume();
+        if (!isAssistantSpeaking) {
+            // Get microphone
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioContext = new AudioContext({ sampleRate: 24000 });
+            await audioContext.resume();
 
-        // Connect to Azure OpenAI Realtime API
-        realtimeSocket = new WebSocket('wss://oai-internship-eus2.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-4o-realtime-preview&api-key=BQslq711tLVVvTUCCjD1uOCjWSOn4JyOJQFTIf7vqI3JHZL0whqkJQQJ99BIACHYHv6XJ3w3AAABACOGVUCM');
+            // Connect to Azure OpenAI Realtime API
+            realtimeSocket = new WebSocket(
+                'wss://oai-internship-eus2.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-4o-realtime-preview&api-key=BQslq711tLVVvTUCCjD1uOCjWSOn4JyOJQFTIf7vqI3JHZL0whqkJQQJ99BIACHYHv6XJ3w3AAABACOGVUCM'
+            );
 
-        realtimeSocket.onopen = () => {
-            console.log('WebSocket connected');
-            // Send session configuration
-            realtimeSocket.send(JSON.stringify({
-                type: 'session.update',
-                session: {
-                    modalities: ['text', 'audio'],
-                    instructions: "You are an AI assistant specialized in AI. When the answer exists in the retrieved documents, respond directly without mentioning the documents. If the user asks about learning a topic that is related to the documents, use the get_course_recommendations function. If the topic is unrelated, politely say the topic is outside the current scope. Always provide references when possible. After each answer, ask if you can assist with anything else.",
-                    voice: 'alloy',
-                    input_audio_format: 'pcm16',
-                    output_audio_format: 'pcm16',
-                    input_audio_transcription: { model: 'whisper-1', language: 'en' },
-                    turn_detection: { type: 'server_vad' },
-                    tools: [],
-                    tool_choice: 'auto',
-                    temperature: 0.8,
-                    max_response_output_tokens: 4096
+            realtimeSocket.onopen = () => {
+                console.log('WebSocket connected');
+
+                // Send session configuration
+                realtimeSocket.send(JSON.stringify({
+                    type: 'session.update',
+                    session: {
+                        modalities: ['text', 'audio'],
+                        instructions: "You are an AI assistant specialized in AI. Always respond in English.",
+                        voice: 'alloy',
+                        input_audio_format: 'pcm16',
+                        output_audio_format: 'pcm16',
+                        input_audio_transcription: { model: 'whisper-1', language: 'en' },
+                        turn_detection: { type: 'server_vad' },
+                        temperature: 0.8,
+                        tools: [],
+                        tool_choice: 'auto',
+                        max_response_output_tokens: 4096
+                    }
+                }));
+
+                startRecording();
+            };
+
+            let assistantAudioChunks = [];
+
+            realtimeSocket.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+                console.log('Received:', message);
+
+                // Collect PCM16 chunks (delta or full audio)
+                if ((message.type === 'response.audio.delta' && message.delta) ||
+                    (message.type === 'response.audio' && message.audio)) {
+                    const audioBase64 = message.delta || message.audio;
+                    assistantAudioChunks.push(base64ToArrayBuffer(audioBase64));
                 }
-            }));
 
-            // Start recording and sending audio
-            startRecording();
-        };
+                // When assistant finishes speaking
+                if (message.type === 'response.done') {
+                    if (assistantAudioChunks.length === 0) {
+                        console.warn('No audio chunks received');
+                        return;
+                    }
 
-        realtimeSocket.onmessage = async (event) => {
-            const message = JSON.parse(event.data);
-            console.log('Received:', message);
-
-            if (message.type === 'conversation.item.input_audio_transcription.completed') {
-                // Transcription completed, add user message and respond with RAG if available
-                const transcript = message.transcript;
-                if (transcript && transcript.trim()) {
-                    addMessage(transcript, true);
-                    fetchRAG(transcript).then(ragResponse => {
-                        if (ragResponse && ragResponse !== 'No additional information available.' && ragResponse !== 'Error fetching information.') {
-                            addTypingEffect(ragResponse);
-                            if ('speechSynthesis' in window) {
-                                isAssistantSpeaking = true;
-                                const utterance = new SpeechSynthesisUtterance(ragResponse);
-                                utterance.onend = () => { isAssistantSpeaking = false; };
-                                speechSynthesis.speak(utterance);
-                            }
-                        }
+                    // Merge all chunks
+                    const totalLength = assistantAudioChunks.reduce((sum, buf) => sum + buf.byteLength, 0);
+                    const combined = new Uint8Array(totalLength);
+                    let offset = 0;
+                    assistantAudioChunks.forEach(buf => {
+                        combined.set(new Uint8Array(buf), offset);
+                        offset += buf.byteLength;
                     });
+
+                    // Play the combined audio
+                    isAssistantSpeaking = true;
+                    playAudio(combined.buffer, () => { 
+                        isAssistantSpeaking = false; 
+                    });
+
+                    assistantAudioChunks = [];
                 }
-            } else if (message.type === 'response.done') {
-                // Response completed
-                isAssistantSpeaking = false;
-            }
-        };
 
-     
-        realtimeSocket.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            addMessage('Real-time connection error', false);
-        };
+                // Text transcription
+                if (message.type === 'conversation.item.input_audio_transcription.completed') {
+                    const transcript = message.transcript;
+                    if (transcript && transcript.trim()) {
+                        addMessage(transcript, true); // show user's question
 
-        realtimeSocket.onclose = () => {
-            console.log('WebSocket closed');
-            stopRecording();
-        };
-    }
+                        fetchRAG(transcript).then(ragResponse => {
+                            if (ragResponse && realtimeSocket.readyState === WebSocket.OPEN) {
+                                // Send assistant's response in English + audio
+                                realtimeSocket.send(JSON.stringify({
+                                    type: 'response.create',
+                                    response: {
+                                        modalities: ['text', 'audio'],
+                                        instructions: ragResponse,
+                                        voice: 'alloy'
+                                    }
+                                }));
+
+                                // Show assistant text immediately
+                                addTypingEffect(ragResponse);
+                            }
+                        });
+                    }
+                }
+            };
+
+            realtimeSocket.onerror = (err) => console.error('WebSocket error:', err);
+            realtimeSocket.onclose = () => stopRecording();
+        }
     } catch (error) {
         console.error('Error starting real-time chat:', error);
         addMessage('Failed to start real-time chat: ' + error.message, false);
         startRealtimeBtn.disabled = false;
         stopRealtimeBtn.disabled = true;
     }
-    
 });
 
+// Stop real-time chat
 stopRealtimeBtn.addEventListener('click', () => {
     startRealtimeBtn.disabled = false;
     stopRealtimeBtn.disabled = true;
@@ -579,28 +612,21 @@ stopRealtimeBtn.addEventListener('click', () => {
     stopRecording();
 });
 
+// Record mic and send to assistant
 function startRecording() {
-    if (!stream) return;
+    if (!stream || !audioContext) return;
 
     const source = audioContext.createMediaStreamSource(stream);
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
     processor.onaudioprocess = (event) => {
-        if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN && !isAssistantSpeaking) {
-            const inputBuffer = event.inputBuffer;
-            const inputData = inputBuffer.getChannelData(0);
-
-            // Convert to PCM16
+        if (isAssistantSpeaking) return; // pause mic while assistant speaks
+        if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+            const inputData = event.inputBuffer.getChannelData(0);
             const pcm16 = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-                pcm16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
-            }
+            for (let i = 0; i < inputData.length; i++) pcm16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
 
-            // Send audio data
-            realtimeSocket.send(JSON.stringify({
-                type: 'input_audio_buffer.append',
-                audio: arrayBufferToBase64(pcm16.buffer)
-            }));
+            realtimeSocket.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: arrayBufferToBase64(pcm16.buffer) }));
         }
     };
 
@@ -609,35 +635,35 @@ function startRecording() {
 }
 
 function stopRecording() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-    }
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    stream = null;
+
     if (audioContext) {
         audioContext.close();
         audioContext = null;
     }
 }
 
-function playAudio(audioData) {
-    const audioBuffer = base64ToArrayBuffer(audioData);
-    const int16Array = new Int16Array(audioBuffer);
+// Play PCM16 buffer with callback
+async function playAudio(arrayBuffer, callback) {
+    if (!audioContext) audioContext = new AudioContext({ sampleRate: 24000 });
+    if (audioContext.state === 'suspended') await audioContext.resume();
 
-    // Convert PCM16 to Float32
-    const float32Array = new Float32Array(int16Array.length);
-    for (let i = 0; i < int16Array.length; i++) {
-        float32Array[i] = int16Array[i] / 32768;
-    }
+    const int16 = new Int16Array(arrayBuffer);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
 
-    // Create audio buffer and play
-    const audioBufferObj = audioContext.createBuffer(1, float32Array.length, 24000);
-    audioBufferObj.copyFromChannel(float32Array, 0);
+    const buffer = audioContext.createBuffer(1, float32.length, audioContext.sampleRate);
+    buffer.copyToChannel(float32, 0);
 
     const source = audioContext.createBufferSource();
-    source.buffer = audioBufferObj;
+    source.buffer = buffer;
     source.connect(audioContext.destination);
     source.start();
+    source.onended = () => { if (callback) callback(); };
 }
+
+
 
 function arrayBufferToBase64(buffer) {
     let binary = '';
