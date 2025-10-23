@@ -363,6 +363,22 @@ function addMessage(text, isUser = false) {
     messageDiv.classList.add('message');
     messageDiv.classList.add(isUser ? 'user-message' : 'assistant-message');
     messageDiv.textContent = text;
+
+    if (!isUser) {
+        const speakBtn = document.createElement('button');
+        speakBtn.classList.add('speak-btn');
+        speakBtn.textContent = '🎙️';
+        speakBtn.onclick = () => {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                speechSynthesis.speak(utterance);
+            } else {
+                alert('Text-to-speech not supported in this browser.');
+            }
+        };
+        messageDiv.appendChild(speakBtn);
+    }
+
     chatContainer.appendChild(messageDiv);
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
@@ -373,7 +389,9 @@ function addTypingEffect(text) {
     chatContainer.appendChild(messageDiv);
 
     let index = 0;
+    let canceled = false;
     function typeChar() {
+        if (canceled) return;
         messageDiv.textContent = text.slice(0, index + 1);
         index++;
         chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -382,6 +400,7 @@ function addTypingEffect(text) {
         }
     }
     typeChar();
+    return { cancel: () => { canceled = true; }, el: messageDiv };
 }
 
 async function sendMessage(message) {
@@ -458,6 +477,11 @@ let audioBuffer = [];
 let currentAssistantMessage = null;
 let ragPromise = null;
 let isAssistantSpeaking = false;
+let currentAudioSource = null;
+let currentTypingHandle = null;
+/* removed delay streaming vars */
+let lastCommitTs = 0;
+/* removed commit batching for latency */
 
 async function fetchRAG(question) {
     try {
@@ -490,36 +514,43 @@ startRealtimeBtn.addEventListener('click', async () => {
 
     try {
         if (!isAssistantSpeaking) {
-            // Get microphone
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Get microphone with echo cancellation to enable barge-in
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    channelCount: 1
+                }
+            });
             audioContext = new AudioContext({ sampleRate: 24000 });
             await audioContext.resume();
 
-            // Connect to Azure OpenAI Realtime API
-            realtimeSocket = new WebSocket(
-                'wss://oai-internship-eus2.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-4o-realtime-preview&api-key=BQslq711tLVVvTUCCjD1uOCjWSOn4JyOJQFTIf7vqI3JHZL0whqkJQQJ99BIACHYHv6XJ3w3AAABACOGVUCM'
-            );
+            // Connect to Azure OpenAI Realtime API via backend-provided URL (no hardcoded key)
+            const wsUrlResponse = await fetch('https://my-chatbot-func-00.azurewebsites.net/api/get_realtime_session?deployment=gpt-4o-realtime-preview&api-version=2024-10-01-preview');
+            const wsData = await wsUrlResponse.json();
+            realtimeSocket = new WebSocket(wsData.url);
 
             realtimeSocket.onopen = () => {
                 console.log('WebSocket connected');
 
                 // Send session configuration
-                realtimeSocket.send(JSON.stringify({
-                    type: 'session.update',
-                    session: {
-                        modalities: ['text', 'audio'],
-                        instructions: "You are an AI assistant specialized in AI. Always respond in English.",
-                        voice: 'alloy',
-                        input_audio_format: 'pcm16',
-                        output_audio_format: 'pcm16',
-                        input_audio_transcription: { model: 'whisper-1', language: 'en' },
-                        turn_detection: { type: 'server_vad' },
-                        temperature: 0.8,
-                        tools: [],
-                        tool_choice: 'auto',
-                        max_response_output_tokens: 4096
-                    }
-                }));
+                        realtimeSocket.send(JSON.stringify({
+                            type: 'session.update',
+                            session: {
+                                modalities: ['text', 'audio'],
+                                instructions: "You are an AI assistant specialized in AI. Always respond in English. even if the user speaks in another language.",
+                                voice: 'alloy',
+                                input_audio_format: 'pcm16',
+                                output_audio_format: 'pcm16',
+                                input_audio_transcription: { model: 'gpt-4o-mini-transcribe'},
+                                turn_detection: { type: 'server_vad' },
+                                temperature: 0.8,
+                                tools: [],
+                                tool_choice: 'auto',
+                                max_response_output_tokens: 4096
+                            }
+                        }));
 
                 startRecording();
             };
@@ -532,9 +563,10 @@ startRealtimeBtn.addEventListener('click', async () => {
 
                 // Collect PCM16 chunks (delta or full audio)
                 if ((message.type === 'response.audio.delta' && message.delta) ||
-                    (message.type === 'response.audio' && message.audio)) {
+                    (message.type === 'response.audio' && message.audio) ||
+                    (message.type === 'response.audio_buffer.delta' && message.delta)) {
                     const audioBase64 = message.delta || message.audio;
-                    assistantAudioChunks.push(base64ToArrayBuffer(audioBase64));
+                    if (audioBase64) assistantAudioChunks.push(base64ToArrayBuffer(audioBase64));
                 }
 
                 // When assistant finishes speaking
@@ -563,29 +595,40 @@ startRealtimeBtn.addEventListener('click', async () => {
                 }
 
                 // Text transcription
-                if (message.type === 'conversation.item.input_audio_transcription.completed') {
+                if (message.type === 'conversation.item.input_audio_transcription.started') {
+                    // User started speaking: stop assistant output (barge-in)
+                    stopAssistantOutput();
+                }
+                if (message.type === 'conversation.item.input_audio_transcription.delta') {
+                    // Ensure any current output is stopped before handling new input
+                    stopAssistantOutput();
                     const transcript = message.transcript;
                     if (transcript && transcript.trim()) {
                         addMessage(transcript, true); // show user's question
-
+                        // Use backend RAG and then ask Realtime to speak it
                         fetchRAG(transcript).then(ragResponse => {
                             if (ragResponse && realtimeSocket.readyState === WebSocket.OPEN) {
+                                // Cancel any in-flight assistant response and start a new one
+                                try { realtimeSocket.send(JSON.stringify({ type: 'response.cancel' })); } catch (e) {}
+                                assistantAudioChunks = [];
                                 // Send assistant's response in English + audio
                                 realtimeSocket.send(JSON.stringify({
                                     type: 'response.create',
                                     response: {
                                         modalities: ['text', 'audio'],
-                                        instructions: ragResponse,
+                                        instructions: "always respond in english " + ragResponse,
                                         voice: 'alloy'
                                     }
                                 }));
 
-                                // Show assistant text immediately
-                                addTypingEffect(ragResponse);
+                                // Show assistant text immediately with cancellable typing effect
+                                if (currentTypingHandle && typeof currentTypingHandle.cancel === 'function') currentTypingHandle.cancel();
+                                currentTypingHandle = addTypingEffect(ragResponse);
                             }
                         });
                     }
                 }
+
             };
 
             realtimeSocket.onerror = (err) => console.error('WebSocket error:', err);
@@ -609,6 +652,7 @@ stopRealtimeBtn.addEventListener('click', () => {
         realtimeSocket.close();
         realtimeSocket = null;
     }
+    stopAssistantOutput();
     stopRecording();
 });
 
@@ -620,7 +664,6 @@ function startRecording() {
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
     processor.onaudioprocess = (event) => {
-        if (isAssistantSpeaking) return; // pause mic while assistant speaks
         if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
             const inputData = event.inputBuffer.getChannelData(0);
             const pcm16 = new Int16Array(inputData.length);
@@ -660,8 +703,23 @@ async function playAudio(arrayBuffer, callback) {
     source.buffer = buffer;
     source.connect(audioContext.destination);
     source.start();
-    source.onended = () => { if (callback) callback(); };
+    currentAudioSource = source;
+    source.onended = () => { currentAudioSource = null; if (callback) callback(); };
 }
+
+// Stop assistant audio + typing and cancel server-side generation
+function stopAssistantOutput() {
+    try { currentAudioSource && currentAudioSource.stop(); } catch (e) {}
+    try { currentAudioSource && currentAudioSource.disconnect(); } catch (e) {}
+    currentAudioSource = null;
+    isAssistantSpeaking = false;
+    if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+        try { realtimeSocket.send(JSON.stringify({ type: 'response.cancel' })); } catch (e) {}
+    }
+    if (currentTypingHandle && typeof currentTypingHandle.cancel === 'function') currentTypingHandle.cancel();
+}
+
+// Create assistant message DOM node for streaming text
 
 
 
