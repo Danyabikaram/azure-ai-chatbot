@@ -6,6 +6,7 @@ import uuid
 import azure.functions as func
 import logging
 from config import COSMOS_URI , COSMOS_KEY
+from config import build_realtime_ws_url
 from chat_logic import SUMMARIZE_AFTER, trim_history, summarize_conversation, generate_rag_response
 from embedding_search import retrieve_relevant_docs
 
@@ -231,6 +232,27 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                         'Access-Control-Allow-Methods': 'POST, OPTIONS',
                         'Access-Control-Allow-Headers': 'Content-Type'
                     })
+
+        elif path == 'get_realtime_session':
+            if req.method == 'GET':
+                try:
+                    deployment = req.params.get('deployment')
+                    api_version = req.params.get('api_version')
+                    ws_url = build_realtime_ws_url(deployment=deployment, api_version=api_version)
+                    return func.HttpResponse(json.dumps({"url": ws_url}), mimetype="application/json", headers={
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    })
+                except Exception as e:
+                    logger.error(f"Error building realtime WS URL: {e}")
+                    return func.HttpResponse(json.dumps({"error": "Failed to get realtime session"}), status_code=500, mimetype="application/json", headers={
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    })
+            else:
+                return func.HttpResponse("Method not allowed", status_code=405)
 
         elif path == 'session-id':
             if req.method == 'GET':
